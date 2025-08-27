@@ -25,6 +25,9 @@ interface WinnerSlot {
 }
 
 export default function DrawingWindowMirror() {
+  const showPrizeHeader = false; // Set to true to enable the prize header
+  const showWinnerSlots = true; // <-- Add this flag
+
   const [displayState, setDisplayState] = useState<DrawingState>({
     drawingNumbers: {},
     isGlobalDrawing: false,
@@ -291,82 +294,86 @@ export default function DrawingWindowMirror() {
               </div>
 
               {/* Right Panel - 65% - Winner Slots */}
-              <div className="w-[65%] h-full p-8 overflow-y-auto">
-                <div className="space-y-8">
-                  {prizeGroups.map((group) => (
-                    <div key={group.prize.id} className="space-y-4">
-                      {/* Prize Header */}
-                      <div className="bg-white/20 backdrop-blur-md rounded-2xl p-4 border border-white/50 shadow-xl">
-                        <h2 className="text-2xl font-bold text-white text-center drop-shadow-md">
-                          🏆 {group.prize.name} 🏆
-                        </h2>
-                      </div>
+              {showWinnerSlots && ( // <-- Wrap the right panel in this conditional
+                <div className="w-[65%] h-full p-8 overflow-y-auto">
+                  <div className="space-y-8">
+                    {prizeGroups.map((group) => (
+                      <div key={group.prize.id} className="space-y-4">
+                        {/* Prize Header - Conditionally rendered */}
+                        {showPrizeHeader && (
+                          <div className="bg-white/20 backdrop-blur-md rounded-2xl p-4 border border-white/50 shadow-xl">
+                            <h2 className="text-2xl font-bold text-white text-center drop-shadow-md">
+                              🏆 {group.prize.name} 🏆
+                            </h2>
+                          </div>
+                        )}
 
-                      {/* Winner Slots for this prize */}
-                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                        {group.slots.map((slot) => {
-                          const isCurrentlyRedrawing = displayState.currentRedrawWinnerId === slot.winnerId;
-                          const displayNumber = getDisplayNumber(slot);
-                          const isAnimating = displayState.isGlobalDrawing || isCurrentlyRedrawing;
-                          const hasWinner = displayNumber !== '---';
-                          
-                          return (
-                            <div 
-                              key={`${slot.prizeId}-${slot.winnerIndex}`}
-                              ref={(el) => {
-                                if (el && slot.winnerId) {
-                                  slotRefs.current[slot.winnerId] = el;
-                                }
-                              }}
-                              className={`bg-white/25 backdrop-blur-md p-6 rounded-2xl text-center shadow-xl border transition-all duration-500 ${
-                                isCurrentlyRedrawing 
-                                  ? 'ring-4 ring-red-400/60 scale-105 border-red-400/70 bg-red-500/30' 
-                                  : hasWinner && !isAnimating 
-                                    ? 'ring-2 ring-green-400/60 border-green-400/70 bg-green-500/30' 
-                                    : 'border-white/50 hover:bg-white/30'
-                              }`}
-                            >
-                              {/* Winner Index */}
-                              <div className="text-sm text-white/90 mb-3 font-semibold">
-                                Pemenang {slot.winnerIndex}
-                              </div>
-                              
-                              {/* Winner Number */}
-                              <div className={`text-5xl md:text-6xl font-mono font-bold transition-all duration-300 drop-shadow-lg ${
-                                isAnimating 
-                                  ? 'text-red-400 animate-pulse scale-110' 
-                                  : hasWinner 
-                                    ? 'text-green-400 scale-110' 
-                                    : 'text-white/60'
-                              }`}>
-                                {displayNumber}
-                              </div>
-                              
-                              {/* Winner celebration indicator */}
-                              {hasWinner && !isAnimating && (
-                                <div className="mt-4">
-                                  <div className="text-sm text-green-400 font-bold animate-bounce">
-                                    🎉 SELAMAT! 🎉
-                                  </div>
+                        {/* Winner Slots for this prize */}
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                          {group.slots.map((slot) => {
+                            const isCurrentlyRedrawing = displayState.currentRedrawWinnerId === slot.winnerId;
+                            const displayNumber = getDisplayNumber(slot);
+                            const isAnimating = displayState.isGlobalDrawing || isCurrentlyRedrawing;
+                            const hasWinner = displayNumber !== '---';
+                            
+                            return (
+                              <div 
+                                key={`${slot.prizeId}-${slot.winnerIndex}`}
+                                ref={(el) => {
+                                  if (el && slot.winnerId) {
+                                    slotRefs.current[slot.winnerId] = el;
+                                  }
+                                }}
+                                className={`bg-white/25 backdrop-blur-md p-6 rounded-2xl text-center shadow-xl border transition-all duration-500 ${
+                                  isCurrentlyRedrawing 
+                                    ? 'ring-4 ring-red-400/60 scale-105 border-red-400/70 bg-red-500/30' 
+                                    : hasWinner && !isAnimating 
+                                      ? 'ring-2 ring-green-400/60 border-green-400/70 bg-green-500/30' 
+                                      : 'border-white/50 hover:bg-white/30'
+                                }`}
+                              >
+                                {/* Winner Index */}
+                                <div className="text-sm text-white/90 mb-3 font-semibold">
+                                  Pemenang {slot.winnerIndex}
                                 </div>
-                              )}
+                                
+                                {/* Winner Number */}
+                                <div className={`text-5xl md:text-6xl font-mono font-bold transition-all duration-300 drop-shadow-lg ${
+                                  isAnimating 
+                                    ? 'text-red-400 animate-pulse scale-110' 
+                                    : hasWinner 
+                                      ? 'text-green-400 scale-110' 
+                                      : 'text-white/60'
+                                }`}>
+                                  {displayNumber}
+                                </div>
+                                
+                                {/* Winner celebration indicator */}
+                                {hasWinner && !isAnimating && (
+                                  <div className="mt-4">
+                                    <div className="text-sm text-green-400 font-bold animate-bounce">
+                                      🎉 SELAMAT! 🎉
+                                    </div>
+                                  </div>
+                                )}
 
-                              {/* Animation indicator */}
-                              {isAnimating && (
-                                <div className="mt-4">
-                                  <div className="text-sm text-red-400 font-bold animate-pulse">
-                                    {isCurrentlyRedrawing ? '🔄 Mengundi Ulang...' : '🎲 Mengundi...'}
+                                {/* Animation indicator */}
+                                {isAnimating && (
+                                  <div className="mt-4">
+                                    <div className="text-sm text-red-400 font-bold animate-pulse">
+                                      {isCurrentlyRedrawing ? '🔄 Mengundi Ulang...' : '🎲 Mengundi...'}
+                                    </div>
                                   </div>
-                                </div>
-                              )}
-                            </div>
-                          );
-                        })}
+                                )}
+                              </div>
+                            );
+                          })}
+                        </div>
                       </div>
-                    </div>
-                  ))}
+                    ))}
+                  </div>
                 </div>
-              </div>
+              )}
             </div>
           </>
         ) : (
