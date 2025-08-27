@@ -215,7 +215,7 @@ export function PrizeInput({ selectedPrizes, onPrizeSelectionChange }: PrizeInpu
                             </DialogTrigger>
                             <DialogContent className="sm:max-w-md">
                               <DialogHeader>
-                                <DialogTitle>Edit Hadiah</DialogTitle>
+                                <DialogTitle>Berhasil</DialogTitle>
                               </DialogHeader>
                               {editingPrize && (
                                 <div className="space-y-4">
