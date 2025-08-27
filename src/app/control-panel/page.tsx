@@ -8,6 +8,64 @@ import { WinnerList } from '@/components/WinnerList';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
+// --- LOGIN FORM COMPONENT ---
+function LoginForm({ onLogin }: { onLogin: () => void }) {
+  const [username, setUsername] = useState('');
+  const [password, setPassword] = useState('');
+  const [error, setError] = useState('');
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (username === 'undiappv1.1' && password === 'Weight35-Wall32') {
+      setError('');
+      onLogin();
+    } else {
+      setError('Username or password is incorrect.');
+    }
+  };
+
+  return (
+    <div className="w-screen h-screen flex flex-col justify-center items-center bg-white">
+      <form
+        onSubmit={handleSubmit}
+        className="bg-white border border-gray-200 shadow-lg p-8 rounded-2xl flex flex-col gap-4 min-w-[320px]"
+      >
+        <h2 className="text-2xl font-bold text-gray-900 text-center mb-4">Login</h2>
+        <input
+          type="text"
+          placeholder="Username"
+          className="p-3 rounded border border-gray-300 bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
+          value={username}
+          onChange={e => setUsername(e.target.value)}
+          required
+        />
+        <input
+          type="password"
+          placeholder="Password"
+          className="p-3 rounded border border-gray-300 bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
+          value={password}
+          onChange={e => setPassword(e.target.value)}
+          required
+        />
+        {error && (
+          <div className="text-red-500 text-sm text-center">{error}</div>
+        )}
+        <button
+          type="submit"
+          className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 rounded transition"
+        >
+          Login
+        </button>
+      </form>
+      <div className="mt-8 text-center text-sm text-gray-500">
+        <p>UndiApp V1.1</p>
+        <p className="mt-1">©️ Crafted with ❤️ HI ©️</p>
+      </div>
+    </div>
+  );
+}
+
+// --- MAIN CONTENT ---
 function MainContent() {
   const { 
     state, 
@@ -458,7 +516,42 @@ function MainContent() {
   );
 }
 
+// --- PAGE COMPONENT WITH LOGIN + SESSION LOGIC ---
 export default function HomePage() {
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+
+  // Check login session on mount
+  useEffect(() => {
+    const loginTimestamp = localStorage.getItem('undiapp_login_time');
+    if (loginTimestamp) {
+      const now = Date.now();
+      const diff = now - parseInt(loginTimestamp, 10);
+      if (diff < 5 * 60 * 1000) { // 5 minutes in ms
+        setIsLoggedIn(true);
+      } else {
+        localStorage.removeItem('undiapp_login_time');
+        setIsLoggedIn(false);
+      }
+    }
+  }, []);
+
+  // On login, set timestamp
+  const handleLogin = () => {
+    localStorage.setItem('undiapp_login_time', Date.now().toString());
+    setIsLoggedIn(true);
+  };
+
+  // On every page load, update timestamp if logged in (to keep session alive on refresh)
+  useEffect(() => {
+    if (isLoggedIn) {
+      localStorage.setItem('undiapp_login_time', Date.now().toString());
+    }
+  }, [isLoggedIn]);
+
+  if (!isLoggedIn) {
+    return <LoginForm onLogin={handleLogin} />;
+  }
+
   return (
     <LotteryProvider>
       <MainContent />
