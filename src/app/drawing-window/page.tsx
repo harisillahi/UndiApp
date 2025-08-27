@@ -229,11 +229,11 @@ export default function DrawingWindowMirror() {
             {/* Top Header - Event Title */}
             <div className="w-full p-6 text-center">
               {displayState.eventName && (
-                <h1 className="text-4xl md:text-6xl font-bold text-white mb-2 drop-shadow-lg">
+                <h1 className="text-4xl md:text-6xl font-bold text-gray-700 mb-2 drop-shadow-lg">
                   {displayState.eventName}
                 </h1>
               )}
-              <p className="text-xl text-white/90 font-medium">
+              <p className="text-xl text-gray-700/90 font-medium">
                 
               </p>
             </div>
@@ -247,7 +247,7 @@ export default function DrawingWindowMirror() {
                   {prizeGroups.map((group, index) => (
                     <div key={group.prize.id} className="text-center">
                       {/* Prize Name - Centered */}
-                      <h2 className="text-3xl md:text-4xl font-bold text-white mb-6 drop-shadow-lg text-center">
+                      <h2 className="text-3xl md:text-4xl font-bold text-gray-700 mb-6 drop-shadow-lg text-center">
                         {group.prize.name}
                       </h2>
                       
@@ -269,7 +269,7 @@ export default function DrawingWindowMirror() {
 
                       {/* Prize Info */}
                       <div className="bg-white/30 backdrop-blur-md rounded-2xl p-4 border border-white/50 shadow-xl">
-                        <span className="text-2xl font-bold text-white">
+                        <span className="text-2xl font-bold text-gray-700">
                           {group.prize.quantity} Pemenang
                         </span>
                       </div>
@@ -280,13 +280,13 @@ export default function DrawingWindowMirror() {
                 {/* Status Indicators */}
                 <div className="mt-8 w-full">
                   {displayState.isGlobalDrawing && (
-                    <div className="bg-red-500/30 backdrop-blur-md border border-red-400/60 text-white px-6 py-4 rounded-2xl font-bold text-xl text-center animate-pulse shadow-xl">
+                    <div className="bg-red-500/30 backdrop-blur-md border border-red-400/60 text-gray-700 px-6 py-4 rounded-2xl font-bold text-xl text-center animate-pulse shadow-xl">
                       🎲 MENGUNDI... 🎲
                     </div>
                   )}
                   
                   {displayState.currentRedrawWinnerId && (
-                    <div className="bg-orange-500/30 backdrop-blur-md border border-orange-400/60 text-white px-6 py-4 rounded-2xl font-bold text-xl text-center animate-pulse shadow-xl">
+                    <div className="bg-orange-500/30 backdrop-blur-md border border-orange-400/60 text-gray-700 px-6 py-4 rounded-2xl font-bold text-xl text-center animate-pulse shadow-xl">
                       🔄 UNDI ULANG... 🔄
                     </div>
                   )}
@@ -302,7 +302,7 @@ export default function DrawingWindowMirror() {
                         {/* Prize Header - Conditionally rendered */}
                         {showPrizeHeader && (
                           <div className="bg-white/20 backdrop-blur-md rounded-2xl p-4 border border-white/50 shadow-xl">
-                            <h2 className="text-2xl font-bold text-white text-center drop-shadow-md">
+                            <h2 className="text-2xl font-bold text-gray-700 text-center drop-shadow-md">
                               🏆 {group.prize.name} 🏆
                             </h2>
                           </div>
@@ -324,16 +324,16 @@ export default function DrawingWindowMirror() {
                                     slotRefs.current[slot.winnerId] = el;
                                   }
                                 }}
-                                className={`bg-white/25 backdrop-blur-md p-6 rounded-2xl text-center shadow-xl border transition-all duration-500 ${
+                                className={`bg-white/50 backdrop-blur-md p-6 rounded-2xl text-center shadow-xl border transition-all duration-500 ${
                                   isCurrentlyRedrawing 
                                     ? 'ring-4 ring-red-400/60 scale-105 border-red-400/70 bg-red-500/30' 
                                     : hasWinner && !isAnimating 
-                                      ? 'ring-2 ring-green-400/60 border-green-400/70 bg-green-500/30' 
+                                      ? 'ring-2 ring-green-900/60 border-green-400/70 bg-green-500/30' 
                                       : 'border-white/50 hover:bg-white/30'
                                 }`}
                               >
                                 {/* Winner Index */}
-                                <div className="text-sm text-white/90 mb-3 font-semibold">
+                                <div className="text-sm text-gray-700/90 mb-3 font-semibold">
                                   Pemenang {slot.winnerIndex}
                                 </div>
                                 
@@ -342,7 +342,7 @@ export default function DrawingWindowMirror() {
                                   isAnimating 
                                     ? 'text-red-400 animate-pulse scale-110' 
                                     : hasWinner 
-                                      ? 'text-green-400 scale-110' 
+                                      ? 'text-green-700 scale-110' 
                                       : 'text-white/60'
                                 }`}>
                                   {displayNumber}
@@ -351,7 +351,7 @@ export default function DrawingWindowMirror() {
                                 {/* Winner celebration indicator */}
                                 {hasWinner && !isAnimating && (
                                   <div className="mt-4">
-                                    <div className="text-sm text-green-400 font-bold animate-bounce">
+                                    <div className="text-sm text-green-700 font-bold animate-bounce">
                                       🎉 SELAMAT! 🎉
                                     </div>
                                   </div>
@@ -382,7 +382,7 @@ export default function DrawingWindowMirror() {
               <h1 className="text-5xl font-bold text-white mb-6 drop-shadow-lg">
                 🎲 Tampilan Undian 🎲
               </h1>
-              <p className="text-2xl text-white/90">
+              <p className="text-2xl text-gray-700/90">
                 Menunggu hadiah dipilih dari Panel Kontrol...
               </p>
               <div className="mt-6 animate-pulse">
@@ -395,7 +395,7 @@ export default function DrawingWindowMirror() {
         {/* Debug Info */}
         {/*}
         <div className="absolute bottom-4 left-4 bg-black/60 backdrop-blur-md text-white p-4 rounded-xl text-xs max-w-md max-h-64 overflow-y-auto border border-white/50 shadow-xl">
-          <div className="font-bold mb-2 text-green-400">🖥️ Tampilan Undian (Mirror Mode):</div>
+          <div className="font-bold mb-2 text-green-700">🖥️ Tampilan Undian (Mirror Mode):</div>
           <div className="space-y-1 text-white/90">
             <div>Selected Prizes: {displayState.selectedPrizeIds?.length || 0}</div>
             <div>Winners: {displayState.winners?.length || 0}</div>
@@ -404,7 +404,7 @@ export default function DrawingWindowMirror() {
             <div>Drawing Numbers: {displayState.drawingNumbers ? Object.keys(displayState.drawingNumbers).length : 0}</div>
             <div>Event Name: {displayState.eventName || 'Not set'}</div>
             <div>Slot Refs: {Object.keys(slotRefs.current).length}</div>
-            <div className="mt-2 text-green-400 font-semibold">
+            <div className="mt-2 text-green-700 font-semibold">
               ✓ Modern layout with enhanced readability
             </div>
           </div>
