@@ -29,6 +29,8 @@ export function LotterySettings() {
 
       const base64 = await fileToBase64(file);
       setBackgroundImage(base64);
+      localStorage.setItem('drawingBgImage', base64);
+      window.dispatchEvent(new StorageEvent('storage', { key: 'drawingBgImage', newValue: base64 }));
     } catch (error) {
       setImageError(error instanceof Error ? error.message : 'Kesalahan saat mengunggah gambar');
     } finally {
@@ -41,99 +43,278 @@ export function LotterySettings() {
   };
 
   return (
-    <Card className="w-full">
-      <CardHeader>
-        <CardTitle className="text-xl font-semibold">Pengaturan</CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-6">
-        {/* Event Name */}
-        <div className="space-y-2">
-          <Label htmlFor="eventName" className="text-sm font-medium">
-            Nama Acara
-          </Label>
-          <Input
-            id="eventName"
-            type="text"
-            placeholder="Masukkan nama acara"
-            value={state.eventName}
-            onChange={(e) => setEventName(e.target.value)}
-            className="w-full"
-          />
-        </div>
-
-        {/* Participant Range */}
-        <div className="space-y-2">
-          <Label htmlFor="participantRange" className="text-sm font-medium">
-            Rentang Peserta
-          </Label>
-          <Input
-            id="participantRange"
-            type="text"
-            placeholder="contoh: 100-150 atau 1,5,10,25"
-            value={state.participantRange}
-            onChange={(e) => setParticipantRange(e.target.value)}
-            className="w-full"
-          />
-          <p className="text-xs text-gray-500">
-            Masukkan rentang (contoh: 100-150) atau nomor spesifik (contoh: 1,5,10,25)
-          </p>
-        </div>
-
-        {/* Theme Toggle */}
-        <div className="flex items-center justify-between">
-          <div className="space-y-1">
-            <Label htmlFor="theme-toggle" className="text-sm font-medium">
-              Tema Gelap
-            </Label>
-            <p className="text-xs text-gray-500">
-              Beralih antara tema terang dan gelap
-            </p>
-          </div>
-          <Switch
-            id="theme-toggle"
-            checked={state.theme === 'dark'}
-            onCheckedChange={handleThemeToggle}
-          />
-        </div>
-
-        {/* Background Image Upload */}
-        <div className="space-y-2">
-          <Label htmlFor="backgroundImage" className="text-sm font-medium">
-            Gambar Latar Belakang untuk Jendela Undian
-          </Label>
+    <>
+      <Card className="w-full">
+        <CardHeader>
+          <CardTitle className="text-xl font-semibold">Pengaturan</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-6">
+          {/* Event Name */}
           <div className="space-y-2">
+            <Label htmlFor="eventName" className="text-sm font-medium">
+              Nama Acara
+            </Label>
             <Input
-              id="backgroundImage"
-              type="file"
-              accept="image/png,image/jpeg,image/jpg"
-              onChange={handleImageUpload}
-              disabled={isUploading}
+              id="eventName"
+              type="text"
+              placeholder="Masukkan nama acara"
+              value={state.eventName}
+              onChange={(e) => setEventName(e.target.value)}
               className="w-full"
             />
-            {imageError && (
-              <p className="text-sm text-red-500">{imageError}</p>
-            )}
-            {isUploading && (
-              <p className="text-sm text-blue-500">Mengunggah gambar...</p>
-            )}
-            {state.backgroundImage && !imageError && (
-              <div className="mt-2">
-                <p className="text-sm text-green-600">✓ Gambar latar belakang berhasil diunggah</p>
-                <div className="mt-2 border rounded-lg overflow-hidden">
-                  <img
-                    src={state.backgroundImage}
-                    alt="Pratinjau latar belakang"
-                    className="w-full h-32 object-cover"
-                  />
-                </div>
-              </div>
-            )}
           </div>
-          <p className="text-xs text-gray-500">
-            Unggah gambar PNG atau JPG (maks 2MB) untuk digunakan sebagai latar belakang di jendela undian. Gambar besar akan dikompres secara otomatis.
-          </p>
+
+          {/* Participant Range */}
+          <div className="space-y-2">
+            <Label htmlFor="participantRange" className="text-sm font-medium">
+              Rentang Peserta
+            </Label>
+            <Input
+              id="participantRange"
+              type="text"
+              placeholder="contoh: 100-150 atau 1,5,10,25"
+              value={state.participantRange}
+              onChange={(e) => setParticipantRange(e.target.value)}
+              className="w-full"
+            />
+            <p className="text-xs text-gray-500">
+              Masukkan rentang (contoh: 100-150) atau nomor spesifik (contoh: 1,5,10,25)
+            </p>
+          </div>
+
+          {/* Theme Toggle */}
+          <div className="flex items-center justify-between">
+            <div className="space-y-1">
+              <Label htmlFor="theme-toggle" className="text-sm font-medium">
+                Tema Gelap
+              </Label>
+              <p className="text-xs text-gray-500">
+                Beralih antara tema terang dan gelap
+              </p>
+            </div>
+            <Switch
+              id="theme-toggle"
+              checked={state.theme === 'dark'}
+              onCheckedChange={handleThemeToggle}
+            />
+          </div>
+
+          {/* Background Image Upload */}
+          <div className="space-y-2">
+            <Label htmlFor="backgroundImage" className="text-sm font-medium">
+              Gambar Latar Belakang untuk Jendela Undian
+            </Label>
+            <div className="space-y-2">
+              <Input
+                id="backgroundImage"
+                type="file"
+                accept="image/png,image/jpeg,image/jpg"
+                onChange={handleImageUpload}
+                disabled={isUploading}
+                className="w-full"
+              />
+              {imageError && (
+                <p className="text-sm text-red-500">{imageError}</p>
+              )}
+              {isUploading && (
+                <p className="text-sm text-blue-500">Mengunggah gambar...</p>
+              )}
+              {state.backgroundImage && !imageError && (
+                <div className="mt-2">
+                  <p className="text-sm text-green-600">✓ Gambar latar belakang berhasil diunggah</p>
+                  <div className="mt-2 border rounded-lg overflow-hidden">
+                    <img
+                      src={state.backgroundImage}
+                      alt="Pratinjau latar belakang"
+                      className="w-full h-32 object-cover"
+                    />
+                  </div>
+                  {/* Delete Background Image Button */}
+                  <button
+                    type="button"
+                    className="mt-2 w-full sm:w-auto bg-red-100 hover:bg-red-200 text-red-700 text-sm font-medium py-2 px-4 rounded transition"
+                    onClick={() => {
+                      setBackgroundImage('');
+                      localStorage.removeItem('drawingBgImage');
+                      window.dispatchEvent(new StorageEvent('storage', {
+                        key: 'drawingBgImage',
+                        newValue: null,
+                      }));
+                      alert('Background image dihapus.');
+                    }}
+                  >
+                    Hapus Gambar Latar
+                  </button>
+                </div>
+              )}
+            </div>
+            <p className="text-xs text-gray-500">
+              Unggah gambar PNG atau JPG (maks 2MB) untuk digunakan sebagai latar belakang di jendela undian. Gambar besar akan dikompres secara otomatis.
+            </p>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Drawing Window Appearance Controls */}
+      <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4 flex flex-col gap-4 mt-6">
+        <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+          Tampilan Font di Drawing Window
+        </h3>
+        <div className="flex flex-row flex-wrap items-end gap-4 w-full">
+          {/* Winner Number */}
+          <div className="flex flex-col">
+            <label className="text-sm text-gray-700 dark:text-gray-200 mb-1">Warna Nomor</label>
+            <input
+              type="color"
+              defaultValue={localStorage.getItem('drawingFontColor') || '#1e293b'}
+              onChange={e => {
+                localStorage.setItem('drawingFontColor', e.target.value);
+                window.dispatchEvent(new StorageEvent('storage', {
+                  key: 'drawingFontColor',
+                  newValue: e.target.value,
+                }));
+              }}
+              className="w-10 h-7 p-0 border-0 bg-transparent"
+            />
+            <label className="text-sm text-gray-700 dark:text-gray-200 mt-2 mb-1">Ukuran (px)</label>
+            <input
+              type="number"
+              min={8}
+              max={200}
+              step={1}
+              defaultValue={localStorage.getItem('drawingFontSizePx') || '48'}
+              onChange={e => {
+                localStorage.setItem('drawingFontSizePx', e.target.value);
+                window.dispatchEvent(new StorageEvent('storage', {
+                  key: 'drawingFontSizePx',
+                  newValue: e.target.value,
+                }));
+              }}
+              className="p-2 rounded border border-gray-300 bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white w-20"
+            />
+          </div>
+          {/* Event Name */}
+          <div className="flex flex-col">
+            <label className="text-sm text-gray-700 dark:text-gray-200 mb-1">Warna Event</label>
+            <input
+              type="color"
+              defaultValue={localStorage.getItem('eventNameFontColor') || '#1e293b'}
+              onChange={e => {
+                localStorage.setItem('eventNameFontColor', e.target.value);
+                window.dispatchEvent(new StorageEvent('storage', {
+                  key: 'eventNameFontColor',
+                  newValue: e.target.value,
+                }));
+              }}
+              className="w-10 h-7 p-0 border-0 bg-transparent"
+            />
+            <label className="text-sm text-gray-700 dark:text-gray-200 mt-2 mb-1">Ukuran (px)</label>
+            <input
+              type="number"
+              min={8}
+              max={200}
+              step={1}
+              defaultValue={localStorage.getItem('eventNameFontSizePx') || '32'}
+              onChange={e => {
+                localStorage.setItem('eventNameFontSizePx', e.target.value);
+                window.dispatchEvent(new StorageEvent('storage', {
+                  key: 'eventNameFontSizePx',
+                  newValue: e.target.value,
+                }));
+              }}
+              className="p-2 rounded border border-gray-300 bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white w-20"
+            />
+          </div>
+          {/* Prize Name */}
+          <div className="flex flex-col">
+            <label className="text-sm text-gray-700 dark:text-gray-200 mb-1">Warna Hadiah</label>
+            <input
+              type="color"
+              defaultValue={localStorage.getItem('prizeNameFontColor') || '#1e293b'}
+              onChange={e => {
+                localStorage.setItem('prizeNameFontColor', e.target.value);
+                window.dispatchEvent(new StorageEvent('storage', {
+                  key: 'prizeNameFontColor',
+                  newValue: e.target.value,
+                }));
+              }}
+              className="w-10 h-7 p-0 border-0 bg-transparent"
+            />
+            <label className="text-sm text-gray-700 dark:text-gray-200 mt-2 mb-1">Ukuran (px)</label>
+            <input
+              type="number"
+              min={8}
+              max={200}
+              step={1}
+              defaultValue={localStorage.getItem('prizeNameFontSizePx') || '28'}
+              onChange={e => {
+                localStorage.setItem('prizeNameFontSizePx', e.target.value);
+                window.dispatchEvent(new StorageEvent('storage', {
+                  key: 'prizeNameFontSizePx',
+                  newValue: e.target.value,
+                }));
+              }}
+              className="p-2 rounded border border-gray-300 bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white w-20"
+            />
+          </div>
+          {/* Total Winner */}
+          <div className="flex flex-col">
+            <label className="text-sm text-gray-700 dark:text-gray-200 mb-1">Warna Total</label>
+            <input
+              type="color"
+              defaultValue={localStorage.getItem('totalWinnerFontColor') || '#1e293b'}
+              onChange={e => {
+                localStorage.setItem('totalWinnerFontColor', e.target.value);
+                window.dispatchEvent(new StorageEvent('storage', {
+                  key: 'totalWinnerFontColor',
+                  newValue: e.target.value,
+                }));
+              }}
+              className="w-10 h-7 p-0 border-0 bg-transparent"
+            />
+            <label className="text-sm text-gray-700 dark:text-gray-200 mt-2 mb-1">Ukuran (px)</label>
+            <input
+              type="number"
+              min={8}
+              max={200}
+              step={1}
+              defaultValue={localStorage.getItem('totalWinnerFontSizePx') || '24'}
+              onChange={e => {
+                localStorage.setItem('totalWinnerFontSizePx', e.target.value);
+                window.dispatchEvent(new StorageEvent('storage', {
+                  key: 'totalWinnerFontSizePx',
+                  newValue: e.target.value,
+                }));
+              }}
+              className="p-2 rounded border border-gray-300 bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white w-20"
+            />
+          </div>
+          {/* Background Transparency */}
+          <div className="flex flex-col">
+            <label className="text-sm text-gray-700 dark:text-gray-200 mb-1">Transparansi Latar (%)</label>
+            <input
+              type="range"
+              min="0"
+              max="100"
+              defaultValue={localStorage.getItem('drawingBgAlpha') || '100'}
+              onChange={e => {
+                localStorage.setItem('drawingBgAlpha', e.target.value);
+                window.dispatchEvent(new StorageEvent('storage', {
+                  key: 'drawingBgAlpha',
+                  newValue: e.target.value,
+                }));
+              }}
+              className="w-32"
+            />
+            <span className="text-xs text-gray-500 mt-1">
+              {localStorage.getItem('drawingBgAlpha') || '100'}%
+            </span>
+          </div>
         </div>
-      </CardContent>
-    </Card>
+        <p className="text-xs text-gray-500 mt-2">
+          Pengaturan ini akan langsung diterapkan di jendela undian.
+        </p>
+      </div>
+    </>
   );
 }
