@@ -480,6 +480,7 @@ function MainContent() {
 
           <TabsContent value="settings" className="space-y-6">
             <LotterySettings />
+
           </TabsContent>
 
           <TabsContent value="prizes" className="space-y-6">
