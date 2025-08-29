@@ -52,6 +52,7 @@ export default function DrawingWindowMirror() {
   const [totalWinnerFontSizePx, setTotalWinnerFontSizePx] = useState('24');
   const [bgColor, setBgColor] = useState('#ffffff');
   const [bgAlpha, setBgAlpha] = useState('100');
+  const [fontFamily, setFontFamily] = useState('sans');
 
   // On mount, read from localStorage
   useEffect(() => {
@@ -66,6 +67,7 @@ export default function DrawingWindowMirror() {
       setTotalWinnerFontSizePx(localStorage.getItem('totalWinnerFontSizePx') || '24');
       setBgColor(localStorage.getItem('drawingBgColor') || '#ffffff');
       setBgAlpha(localStorage.getItem('drawingBgAlpha') || '100');
+      setFontFamily(localStorage.getItem('drawingFontFamily') || 'sans');
     }
   }, []);
 
@@ -81,6 +83,7 @@ export default function DrawingWindowMirror() {
       if (e.key === 'totalWinnerFontSizePx' && e.newValue) setTotalWinnerFontSizePx(e.newValue);
       if (e.key === 'drawingBgColor' && e.newValue) setBgColor(e.newValue);
       if (e.key === 'drawingBgAlpha' && e.newValue) setBgAlpha(e.newValue);
+      if (e.key === 'drawingFontFamily' && e.newValue) setFontFamily(e.newValue);
     };
     window.addEventListener('storage', handleStorageChange);
     return () => window.removeEventListener('storage', handleStorageChange);
@@ -209,9 +212,27 @@ export default function DrawingWindowMirror() {
   }
 
   return (
-    <div className="w-screen h-screen overflow-hidden relative">
+    <div
+      style={{
+        fontFamily:
+          fontFamily === 'sans'
+            ? 'ui-sans-serif, system-ui, sans-serif'
+            : fontFamily === 'serif'
+            ? 'ui-serif, Georgia, serif'
+            : fontFamily === 'mono'
+            ? 'ui-monospace, SFMono-Regular, monospace'
+            : fontFamily === 'poppins'
+            ? "'Poppins', ui-sans-serif, system-ui, sans-serif"
+            : fontFamily === 'roboto'
+            ? "'Roboto', ui-sans-serif, system-ui, sans-serif"
+            : fontFamily === 'nunito'
+            ? "'Nunito', ui-sans-serif, system-ui, sans-serif"
+            : fontFamily,
+      }}
+      className="w-screen h-screen overflow-hidden relative"
+    >
       {/* Background Layer */}
-      <div 
+      <div
         className="absolute inset-0 w-full h-full"
         style={{
           ...(displayState.backgroundImage ? {
@@ -229,9 +250,9 @@ export default function DrawingWindowMirror() {
       <div className="absolute inset-0 bg-black/20" />
       {/* Content Layer */}
       <div className="relative z-10 w-full h-full flex flex-col">
-        <ConfettiEffect 
-          trigger={showConfetti} 
-          onComplete={() => setShowConfetti(false)} 
+        <ConfettiEffect
+          trigger={showConfetti}
+          onComplete={() => setShowConfetti(false)}
         />
         {hasSelectedPrizes ? (
           <>
@@ -266,8 +287,8 @@ export default function DrawingWindowMirror() {
                       </h2>
                       <div className="flex justify-center mb-6">
                         {group.prize.image ? (
-                          <img 
-                            src={group.prize.image} 
+                          <img
+                            src={group.prize.image}
                             alt={group.prize.name}
                             className="max-w-[50vw] max-h-[50vh] object-contain rounded-2xl shadow-2xl"
                             style={{ aspectRatio: 'auto' }}
@@ -339,7 +360,7 @@ export default function DrawingWindowMirror() {
                               const isAnimating = displayState.isGlobalDrawing || isCurrentlyRedrawing;
                               const hasWinner = displayNumber !== '---';
                               return (
-                                <div 
+                                <div
                                   key={`${slot.prizeId}-${slot.winnerIndex}`}
                                   ref={(el) => {
                                     if (el && slot.winnerId) {
@@ -357,8 +378,25 @@ export default function DrawingWindowMirror() {
                                     Pemenang {slot.winnerIndex}
                                   </div>
                                   <div
-                                    style={{ color: fontColor, fontSize: `${fontSizePx}px` }}
-                                    className="font-mono font-bold"
+                                    style={{
+                                      color: fontColor,
+                                      fontSize: `${fontSizePx}px`,
+                                      fontFamily:
+                                        fontFamily === 'sans'
+                                          ? 'ui-sans-serif, system-ui, sans-serif'
+                                          : fontFamily === 'serif'
+                                          ? 'ui-serif, Georgia, serif'
+                                          : fontFamily === 'mono'
+                                          ? 'ui-monospace, SFMono-Regular, monospace'
+                                          : fontFamily === 'poppins'
+                                          ? "'Poppins', ui-sans-serif, system-ui, sans-serif"
+                                          : fontFamily === 'roboto'
+                                          ? "'Roboto', ui-sans-serif, system-ui, sans-serif"
+                                          : fontFamily === 'nunito'
+                                          ? "'Nunito', ui-sans-serif, system-ui, sans-serif"
+                                          : fontFamily,
+                                    }}
+                                    className="font-bold"
                                   >
                                     {displayNumber}
                                   </div>
