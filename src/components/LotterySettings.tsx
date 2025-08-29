@@ -160,9 +160,9 @@ export function LotterySettings() {
         <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
           Tampilan Font di Drawing Window
         </h3>
-        <div className="flex flex-row flex-wrap items-end gap-4 w-full">
+        <div className="grid grid-cols-6 gap-4 w-full">
           {/* Winner Number */}
-          <div className="flex flex-col">
+          <div className="flex flex-col items-center text-center w-full">
             <label className="text-sm text-gray-700 dark:text-gray-200 mb-1">Warna Nomor</label>
             <input
               type="color"
@@ -190,11 +190,11 @@ export function LotterySettings() {
                   newValue: e.target.value,
                 }));
               }}
-              className="p-2 rounded border border-gray-300 bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white w-20"
+              className="p-2 rounded border border-gray-300 bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white w-20 mx-auto"
             />
           </div>
           {/* Event Name */}
-          <div className="flex flex-col">
+          <div className="flex flex-col items-center text-center w-full">
             <label className="text-sm text-gray-700 dark:text-gray-200 mb-1">Warna Event</label>
             <input
               type="color"
@@ -222,11 +222,11 @@ export function LotterySettings() {
                   newValue: e.target.value,
                 }));
               }}
-              className="p-2 rounded border border-gray-300 bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white w-20"
+              className="p-2 rounded border border-gray-300 bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white w-20 mx-auto"
             />
           </div>
           {/* Prize Name */}
-          <div className="flex flex-col">
+          <div className="flex flex-col items-center text-center w-full">
             <label className="text-sm text-gray-700 dark:text-gray-200 mb-1">Warna Hadiah</label>
             <input
               type="color"
@@ -254,11 +254,11 @@ export function LotterySettings() {
                   newValue: e.target.value,
                 }));
               }}
-              className="p-2 rounded border border-gray-300 bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white w-20"
+              className="p-2 rounded border border-gray-300 bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white w-20 mx-auto"
             />
           </div>
           {/* Total Winner */}
-          <div className="flex flex-col">
+          <div className="flex flex-col items-center text-center w-full">
             <label className="text-sm text-gray-700 dark:text-gray-200 mb-1">Warna Total</label>
             <input
               type="color"
@@ -286,11 +286,11 @@ export function LotterySettings() {
                   newValue: e.target.value,
                 }));
               }}
-              className="p-2 rounded border border-gray-300 bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white w-20"
+              className="p-2 rounded border border-gray-300 bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white w-20 mx-auto"
             />
           </div>
           {/* Background Transparency */}
-          <div className="flex flex-col">
+          <div className="flex flex-col items-center text-center w-full">
             <label className="text-sm text-gray-700 dark:text-gray-200 mb-1">Transparansi Latar (%)</label>
             <input
               type="range"
@@ -304,14 +304,36 @@ export function LotterySettings() {
                   newValue: e.target.value,
                 }));
               }}
-              className="w-32"
+              className="w-32 mx-auto"
             />
             <span className="text-xs text-gray-500 mt-1">
               {localStorage.getItem('drawingBgAlpha') || '100'}%
             </span>
           </div>
+          {/* Font Family */}
+          <div className="flex flex-col items-center text-center w-full">
+            <label className="text-sm text-gray-700 dark:text-gray-200 mb-1">Jenis Font</label>
+            <select
+              defaultValue={localStorage.getItem('drawingFontFamily') || 'sans'}
+              onChange={e => {
+                localStorage.setItem('drawingFontFamily', e.target.value);
+                window.dispatchEvent(new StorageEvent('storage', {
+                  key: 'drawingFontFamily',
+                  newValue: e.target.value,
+                }));
+              }}
+              className="p-2 rounded border border-gray-300 bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white w-32 mx-auto"
+            >
+              <option value="sans">Sans (Default)</option>
+              <option value="serif">Serif</option>
+              <option value="mono">Monospace</option>
+              <option value="poppins">Poppins</option>
+              <option value="roboto">Roboto</option>
+              <option value="nunito">Nunito</option>
+            </select>
+          </div>
         </div>
-        <p className="text-xs text-gray-500 mt-2">
+        <p className="text-xs text-gray-500 mt-2 text-center">
           Pengaturan ini akan langsung diterapkan di jendela undian.
         </p>
       </div>
