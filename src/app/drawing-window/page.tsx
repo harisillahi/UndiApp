@@ -180,14 +180,23 @@ export default function DrawingWindowMirror() {
     return Object.values(grouped);
   };
 
-  // Get display number for a winner slot
+  // Get display value for a winner slot (number or name)
   const getDisplayNumber = (slot: WinnerSlot): string => {
     const winner = displayState.winners?.find(w => w.id === slot.winnerId);
-    const animatedNumber = displayState.drawingNumbers?.[slot.winnerId];
-    if (animatedNumber) {
-      return animatedNumber;
+    const animatedValue = displayState.drawingNumbers?.[slot.winnerId];
+    if (animatedValue) {
+      return animatedValue;
     }
-    return winner?.participantNumber || '---';
+    // If the value is a number string, show as number; otherwise, show as name
+    if (winner?.participantNumber) {
+      // If it's a number, pad it; if not, show as is
+      const val = winner.participantNumber;
+      if (/^\d+$/.test(val)) {
+        return val.padStart(3, '0');
+      }
+      return val;
+    }
+    return '---';
   };
 
   const prizeGroups = groupSlotsByPrize();

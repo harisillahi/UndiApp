@@ -69,10 +69,7 @@ function LoginForm({ onLogin }: { onLogin: () => void }) {
 // --- MAIN CONTENT ---
 function MainContent() {
 
-  // --- NEW: Drawing Mode State ---
-  const [drawMode, setDrawMode] = useState<'number' | 'name'>('number');
-  const [participantNames, setParticipantNames] = useState<string>('');
-
+  // --- Drawing Mode State ---
   const { 
     state, 
     createWinnersForPrizes,
@@ -82,8 +79,12 @@ function MainContent() {
     setDrawingNumbers,
     startIndividualRedraw,
     stopIndividualRedraw,
-    setParticipantRange
+    setParticipantRange,
+    setDrawMode,
+    setParticipantNames
   } = useLottery();
+  const drawMode = state.drawMode;
+  const participantNames = state.participantNames;
 
   const [selectedPrizes, setSelectedPrizes] = useState<string[]>([]);
   const [debugInfo, setDebugInfo] = useState({
@@ -143,7 +144,14 @@ function MainContent() {
   }, [selectedPrizes, state.winners, stopGlobalDrawing, stopIndividualRedraw]);
 
   const openDrawingWindow = () => {
-    // ...existing code...
+    const drawingWindow = window.open(
+      '/drawing-window',
+      'drawingWindow',
+      'width=1200,height=800,scrollbars=yes,resizable=yes'
+    );
+    if (!drawingWindow) {
+      alert('Harap izinkan popup untuk situs ini agar dapat membuka jendela undian');
+    }
   };
 
   // --- NEW: Get participant list based on mode ---
@@ -206,7 +214,7 @@ function MainContent() {
     state.winners.forEach((winner: any) => {
       const randomIndex = Math.floor(Math.random() * participants.length);
       const selected = participants[randomIndex];
-      finalNumbers[winner.id] = selected;
+      finalNumbers[winner.id] = selected ? selected.toString() : '';
     });
     stopGlobalDrawing(finalNumbers);
     localStorage.removeItem('startDrawing');

@@ -32,6 +32,8 @@ export interface LotteryState {
   drawingNumbers: { [winnerId: string]: string | undefined }; // Current animated numbers
   isGlobalDrawing: boolean; // Main drawing active
   selectedPrizeIds: string[]; // Currently selected prizes for drawing
+  drawMode: 'number' | 'name';
+  participantNames: string;
 }
 
 interface LotteryContextType {
@@ -60,6 +62,8 @@ interface LotteryContextType {
   startIndividualRedraw: (winnerId: string) => void;
   stopIndividualRedraw: (winnerId: string, finalNumber: string) => void;
   createWinnersForPrizes: (prizeIds: string[]) => void;
+  setDrawMode: (mode: 'number' | 'name') => void;
+  setParticipantNames: (names: string) => void;
 }
 
 const LotteryContext = createContext<LotteryContextType | undefined>(undefined);
@@ -77,10 +81,20 @@ const initialState: LotteryState = {
   drawingNumbers: {},
   isGlobalDrawing: false,
   selectedPrizeIds: [],
+  // Add drawMode and participantNames for name animation
+  drawMode: 'number',
+  participantNames: '',
 };
 
 export function LotteryProvider({ children }: { children: ReactNode }) {
   const [state, setState] = useState<LotteryState>(initialState);
+  // Add setters for drawMode and participantNames
+  const setDrawMode = (mode: 'number' | 'name') => {
+    setState(prev => ({ ...prev, drawMode: mode }));
+  };
+  const setParticipantNames = (names: string) => {
+    setState(prev => ({ ...prev, participantNames: names }));
+  };
   const [isHydrated, setIsHydrated] = useState(false);
   const drawingIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const redrawIntervalRef = useRef<NodeJS.Timeout | null>(null);
@@ -93,7 +107,6 @@ export function LotteryProvider({ children }: { children: ReactNode }) {
   // Load state from localStorage on mount
   useEffect(() => {
     if (typeof window === 'undefined' || !isHydrated) return;
-    
     const savedState = localStorage.getItem('lotteryState');
     if (savedState) {
       try {
@@ -101,6 +114,8 @@ export function LotteryProvider({ children }: { children: ReactNode }) {
         // Always reset drawing states on load to prevent stuck states
         setState({
           ...parsedState,
+          participantNames: typeof parsedState.participantNames === 'string' ? parsedState.participantNames : '',
+          drawMode: parsedState.drawMode || 'number',
           currentRedrawWinnerId: null,
           isDrawing: false,
           isGlobalDrawing: false,
@@ -186,26 +201,50 @@ export function LotteryProvider({ children }: { children: ReactNode }) {
     return fallbackRange;
   };
 
+  // Helper function to get participant list based on mode
+  const getParticipantList = (): string[] => {
+    if (state.drawMode === 'name') {
+      return state.participantNames
+        .split('\n')
+        .map((name: string) => name.trim())
+        .filter((name: string) => name.length > 0);
+    } else {
+      // Number mode: use range
+      if (!state.participantRange || state.participantRange.trim() === '') {
+        return Array.from({ length: 100 }, (_, i) => (i + 1).toString());
+      }
+      if (state.participantRange.includes('-')) {
+        const [start, end] = state.participantRange.split('-').map((num: string) => parseInt(num.trim()));
+        if (!isNaN(start) && !isNaN(end) && start <= end) {
+          return Array.from({ length: end - start + 1 }, (_, i) => (start + i).toString());
+        }
+      }
+      if (state.participantRange.includes(',')) {
+        return state.participantRange.split(',').map((num: string) => num.trim()).filter((num: string) => num.length > 0);
+      }
+      const num = parseInt(state.participantRange.trim());
+      if (!isNaN(num) && num > 0) {
+        return Array.from({ length: num }, (_, i) => (i + 1).toString());
+      }
+      return Array.from({ length: 100 }, (_, i) => (i + 1).toString());
+    }
+  };
+
   // Helper function to start drawing animation
   const startDrawingAnimation = () => {
     console.log('Starting drawing animation for winners:', state.winners);
-    
     if (drawingIntervalRef.current) {
       clearInterval(drawingIntervalRef.current);
     }
-
-    const participantNumbers = parseParticipantRange(state.participantRange);
-    console.log('Participant numbers for animation:', participantNumbers);
-
+    const participants = getParticipantList();
+    console.log('Participants for animation:', participants);
     drawingIntervalRef.current = setInterval(() => {
       const newDrawingNumbers: { [winnerId: string]: string } = {};
-      
       state.winners.forEach(winner => {
-        const randomIndex = Math.floor(Math.random() * participantNumbers.length);
-        const selectedNumber = participantNumbers[randomIndex];
-        newDrawingNumbers[winner.id] = selectedNumber.toString().padStart(3, '0');
+        const randomIndex = Math.floor(Math.random() * participants.length);
+        const selected = participants[randomIndex];
+        newDrawingNumbers[winner.id] = selected ? selected.toString() : '';
       });
-
       setState(prev => ({
         ...prev,
         drawingNumbers: newDrawingNumbers,
@@ -216,23 +255,19 @@ export function LotteryProvider({ children }: { children: ReactNode }) {
   // Helper function to start individual redraw animation
   const startIndividualRedrawAnimation = (winnerId: string) => {
     console.log('Starting individual redraw animation for winner:', winnerId);
-    
     if (redrawIntervalRef.current) {
       clearInterval(redrawIntervalRef.current);
     }
-
-    const participantNumbers = parseParticipantRange(state.participantRange);
-
+    const participants = getParticipantList();
     redrawIntervalRef.current = setInterval(() => {
-      const randomIndex = Math.floor(Math.random() * participantNumbers.length);
-      const selectedNumber = participantNumbers[randomIndex];
-      const newNumber = selectedNumber.toString().padStart(3, '0');
-
+      const randomIndex = Math.floor(Math.random() * participants.length);
+      const selected = participants[randomIndex];
+      const newValue = selected ? selected.toString() : '';
       setState(prev => ({
         ...prev,
         drawingNumbers: {
           ...prev.drawingNumbers,
-          [winnerId]: newNumber,
+          [winnerId]: newValue,
         },
       }));
     }, 100);
@@ -526,6 +561,8 @@ export function LotteryProvider({ children }: { children: ReactNode }) {
     startIndividualRedraw,
     stopIndividualRedraw,
     createWinnersForPrizes,
+    setDrawMode,
+    setParticipantNames,
   };
 
   return (
