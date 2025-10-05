@@ -201,33 +201,39 @@ export function LotteryProvider({ children }: { children: ReactNode }) {
     return fallbackRange;
   };
 
-  // Helper function to get participant list based on mode
+  // Helper function to get participant list based on mode, excluding already drawn winners
   const getParticipantList = (): string[] => {
+    let allParticipants: string[];
     if (state.drawMode === 'name') {
-      return state.participantNames
+      allParticipants = state.participantNames
         .split('\n')
         .map((name: string) => name.trim())
         .filter((name: string) => name.length > 0);
     } else {
       // Number mode: use range
       if (!state.participantRange || state.participantRange.trim() === '') {
-        return Array.from({ length: 100 }, (_, i) => (i + 1).toString());
-      }
-      if (state.participantRange.includes('-')) {
+        allParticipants = Array.from({ length: 100 }, (_, i) => (i + 1).toString());
+      } else if (state.participantRange.includes('-')) {
         const [start, end] = state.participantRange.split('-').map((num: string) => parseInt(num.trim()));
         if (!isNaN(start) && !isNaN(end) && start <= end) {
-          return Array.from({ length: end - start + 1 }, (_, i) => (start + i).toString());
+          allParticipants = Array.from({ length: end - start + 1 }, (_, i) => (start + i).toString());
+        } else {
+          allParticipants = [];
+        }
+      } else if (state.participantRange.includes(',')) {
+        allParticipants = state.participantRange.split(',').map((num: string) => num.trim()).filter((num: string) => num.length > 0);
+      } else {
+        const num = parseInt(state.participantRange.trim());
+        if (!isNaN(num) && num > 0) {
+          allParticipants = Array.from({ length: num }, (_, i) => (i + 1).toString());
+        } else {
+          allParticipants = [];
         }
       }
-      if (state.participantRange.includes(',')) {
-        return state.participantRange.split(',').map((num: string) => num.trim()).filter((num: string) => num.length > 0);
-      }
-      const num = parseInt(state.participantRange.trim());
-      if (!isNaN(num) && num > 0) {
-        return Array.from({ length: num }, (_, i) => (i + 1).toString());
-      }
-      return Array.from({ length: 100 }, (_, i) => (i + 1).toString());
     }
+    // Exclude all participantNumbers already assigned to winners (confirmed or not)
+    const assigned = state.winners.map(w => w.participantNumber).filter(p => p);
+    return allParticipants.filter(p => !assigned.includes(p));
   };
 
   // Helper function to start drawing animation

@@ -406,8 +406,9 @@ function MainContent() {
             <WinnerList 
               onStartIndividualRedraw={startIndividualRedraw}
               onStopIndividualRedraw={(winnerId: string) => {
-                // fallback: just call with empty string for finalNumber
-                stopIndividualRedraw(winnerId, '');
+                // Use the current animated value as the final winner value
+                const finalValue = state.drawingNumbers[winnerId] || '';
+                stopIndividualRedraw(winnerId, finalValue);
               }}
             />
           </TabsContent>
@@ -427,18 +428,11 @@ function MainContent() {
 export default function HomePage() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
 
-  // Check login session on mount
+  // Check login session on mount (disabled 5-min rule)
   useEffect(() => {
     const loginTimestamp = localStorage.getItem('undiapp_login_time');
     if (loginTimestamp) {
-      const now = Date.now();
-      const diff = now - parseInt(loginTimestamp, 10);
-      if (diff < 5 * 60 * 1000) { // 5 minutes in ms
-        setIsLoggedIn(true);
-      } else {
-        localStorage.removeItem('undiapp_login_time');
-        setIsLoggedIn(false);
-      }
+      setIsLoggedIn(true);
     }
   }, []);
 
