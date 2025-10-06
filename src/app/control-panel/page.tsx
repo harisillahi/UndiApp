@@ -17,7 +17,7 @@ function LoginForm({ onLogin }: { onLogin: () => void }) {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (username === 'undiappv1.1' && password === 'metal48-Voice56') {
+    if (username === 'undiappv1.1' && password === 'ice65-try-cents8') {
       setError('');
       onLogin();
     } else {
