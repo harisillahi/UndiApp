@@ -565,7 +565,7 @@ function MainContent() {
 
         {/* Footer */}
         <div className="mt-8 text-center text-sm text-gray-500 dark:text-gray-400">
-          <p>UndiApp V1.1</p>
+          <p>UndiApp V1.2</p>
           <p className="mt-1">©️ Crafted with ❤️ HI ©️</p>
         </div>
       </div>
