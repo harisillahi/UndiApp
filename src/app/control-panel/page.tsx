@@ -63,7 +63,7 @@ function LoginForm({ onLogin }: { onLogin: () => void }) {
         </button>
       </form>
       <div className="mt-8 text-center text-sm text-gray-500">
-        <p>UndiApp <V1 className="2"></V1></p>
+        <p>UndiApp V1.2</p>
         <p className="mt-1">©️ Crafted with ❤️ HI ©️</p>
       </div>
     </div>
