@@ -5,7 +5,7 @@ import "./globals.css";
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "UndiApp V1.1",
+  title: "UndiApp V1.2",
   description: "Sistem undian digital profesional dengan panel kontrol dan jendela undian",
 };
 
