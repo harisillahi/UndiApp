@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useLottery } from '@/context/LotteryContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -13,6 +13,32 @@ export function LotterySettings() {
   const { state, setEventName, setParticipantRange, setTheme, setBackgroundImage } = useLottery();
   const [imageError, setImageError] = useState<string>('');
   const [isUploading, setIsUploading] = useState(false);
+  const [bgAlpha, setBgAlpha] = useState('100');
+  const [fontColor, setFontColor] = useState('#1e293b');
+  const [fontSize, setFontSize] = useState('48');
+  const [eventNameFontColor, setEventNameFontColor] = useState('#1e293b');
+  const [eventNameFontSize, setEventNameFontSize] = useState('32');
+  const [prizeNameFontColor, setPrizeNameFontColor] = useState('#1e293b');
+  const [prizeNameFontSize, setPrizeNameFontSize] = useState('28');
+  const [totalWinnerFontColor, setTotalWinnerFontColor] = useState('#1e293b');
+  const [totalWinnerFontSize, setTotalWinnerFontSize] = useState('24');
+  const [fontFamily, setFontFamily] = useState('sans');
+
+  // Load all settings from localStorage on mount
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      setBgAlpha(localStorage.getItem('drawingBgAlpha') || '100');
+      setFontColor(localStorage.getItem('drawingFontColor') || '#1e293b');
+      setFontSize(localStorage.getItem('drawingFontSizePx') || '48');
+      setEventNameFontColor(localStorage.getItem('eventNameFontColor') || '#1e293b');
+      setEventNameFontSize(localStorage.getItem('eventNameFontSizePx') || '32');
+      setPrizeNameFontColor(localStorage.getItem('prizeNameFontColor') || '#1e293b');
+      setPrizeNameFontSize(localStorage.getItem('prizeNameFontSizePx') || '28');
+      setTotalWinnerFontColor(localStorage.getItem('totalWinnerFontColor') || '#1e293b');
+      setTotalWinnerFontSize(localStorage.getItem('totalWinnerFontSizePx') || '24');
+      setFontFamily(localStorage.getItem('drawingFontFamily') || 'sans');
+    }
+  }, []);
 
   const handleImageUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -160,18 +186,20 @@ export function LotterySettings() {
         <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
           Tampilan Font di Drawing Window
         </h3>
-        <div className="grid grid-cols-6 gap-4 w-full">
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4 w-full">
           {/* Winner Number */}
           <div className="flex flex-col items-center text-center w-full">
             <label className="text-sm text-gray-700 dark:text-gray-200 mb-1">Warna Nomor</label>
             <input
               type="color"
-              defaultValue={localStorage.getItem('drawingFontColor') || '#1e293b'}
+              value={fontColor}
               onChange={e => {
-                localStorage.setItem('drawingFontColor', e.target.value);
+                const value = e.target.value;
+                setFontColor(value);
+                localStorage.setItem('drawingFontColor', value);
                 window.dispatchEvent(new StorageEvent('storage', {
                   key: 'drawingFontColor',
-                  newValue: e.target.value,
+                  newValue: value,
                 }));
               }}
               className="w-10 h-7 p-0 border-0 bg-transparent"
@@ -182,12 +210,14 @@ export function LotterySettings() {
               min={8}
               max={200}
               step={1}
-              defaultValue={localStorage.getItem('drawingFontSizePx') || '48'}
+              value={fontSize}
               onChange={e => {
-                localStorage.setItem('drawingFontSizePx', e.target.value);
+                const value = e.target.value;
+                setFontSize(value);
+                localStorage.setItem('drawingFontSizePx', value);
                 window.dispatchEvent(new StorageEvent('storage', {
                   key: 'drawingFontSizePx',
-                  newValue: e.target.value,
+                  newValue: value,
                 }));
               }}
               className="p-2 rounded border border-gray-300 bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white w-20 mx-auto"
@@ -198,12 +228,14 @@ export function LotterySettings() {
             <label className="text-sm text-gray-700 dark:text-gray-200 mb-1">Warna Event</label>
             <input
               type="color"
-              defaultValue={localStorage.getItem('eventNameFontColor') || '#1e293b'}
+              value={eventNameFontColor}
               onChange={e => {
-                localStorage.setItem('eventNameFontColor', e.target.value);
+                const value = e.target.value;
+                setEventNameFontColor(value);
+                localStorage.setItem('eventNameFontColor', value);
                 window.dispatchEvent(new StorageEvent('storage', {
                   key: 'eventNameFontColor',
-                  newValue: e.target.value,
+                  newValue: value,
                 }));
               }}
               className="w-10 h-7 p-0 border-0 bg-transparent"
@@ -214,12 +246,14 @@ export function LotterySettings() {
               min={8}
               max={200}
               step={1}
-              defaultValue={localStorage.getItem('eventNameFontSizePx') || '32'}
+              value={eventNameFontSize}
               onChange={e => {
-                localStorage.setItem('eventNameFontSizePx', e.target.value);
+                const value = e.target.value;
+                setEventNameFontSize(value);
+                localStorage.setItem('eventNameFontSizePx', value);
                 window.dispatchEvent(new StorageEvent('storage', {
                   key: 'eventNameFontSizePx',
-                  newValue: e.target.value,
+                  newValue: value,
                 }));
               }}
               className="p-2 rounded border border-gray-300 bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white w-20 mx-auto"
@@ -230,12 +264,14 @@ export function LotterySettings() {
             <label className="text-sm text-gray-700 dark:text-gray-200 mb-1">Warna Hadiah</label>
             <input
               type="color"
-              defaultValue={localStorage.getItem('prizeNameFontColor') || '#1e293b'}
+              value={prizeNameFontColor}
               onChange={e => {
-                localStorage.setItem('prizeNameFontColor', e.target.value);
+                const value = e.target.value;
+                setPrizeNameFontColor(value);
+                localStorage.setItem('prizeNameFontColor', value);
                 window.dispatchEvent(new StorageEvent('storage', {
                   key: 'prizeNameFontColor',
-                  newValue: e.target.value,
+                  newValue: value,
                 }));
               }}
               className="w-10 h-7 p-0 border-0 bg-transparent"
@@ -246,12 +282,14 @@ export function LotterySettings() {
               min={8}
               max={200}
               step={1}
-              defaultValue={localStorage.getItem('prizeNameFontSizePx') || '28'}
+              value={prizeNameFontSize}
               onChange={e => {
-                localStorage.setItem('prizeNameFontSizePx', e.target.value);
+                const value = e.target.value;
+                setPrizeNameFontSize(value);
+                localStorage.setItem('prizeNameFontSizePx', value);
                 window.dispatchEvent(new StorageEvent('storage', {
                   key: 'prizeNameFontSizePx',
-                  newValue: e.target.value,
+                  newValue: value,
                 }));
               }}
               className="p-2 rounded border border-gray-300 bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white w-20 mx-auto"
@@ -262,12 +300,14 @@ export function LotterySettings() {
             <label className="text-sm text-gray-700 dark:text-gray-200 mb-1">Warna Total</label>
             <input
               type="color"
-              defaultValue={localStorage.getItem('totalWinnerFontColor') || '#1e293b'}
+              value={totalWinnerFontColor}
               onChange={e => {
-                localStorage.setItem('totalWinnerFontColor', e.target.value);
+                const value = e.target.value;
+                setTotalWinnerFontColor(value);
+                localStorage.setItem('totalWinnerFontColor', value);
                 window.dispatchEvent(new StorageEvent('storage', {
                   key: 'totalWinnerFontColor',
-                  newValue: e.target.value,
+                  newValue: value,
                 }));
               }}
               className="w-10 h-7 p-0 border-0 bg-transparent"
@@ -278,12 +318,14 @@ export function LotterySettings() {
               min={8}
               max={200}
               step={1}
-              defaultValue={localStorage.getItem('totalWinnerFontSizePx') || '24'}
+              value={totalWinnerFontSize}
               onChange={e => {
-                localStorage.setItem('totalWinnerFontSizePx', e.target.value);
+                const value = e.target.value;
+                setTotalWinnerFontSize(value);
+                localStorage.setItem('totalWinnerFontSizePx', value);
                 window.dispatchEvent(new StorageEvent('storage', {
                   key: 'totalWinnerFontSizePx',
-                  newValue: e.target.value,
+                  newValue: value,
                 }));
               }}
               className="p-2 rounded border border-gray-300 bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white w-20 mx-auto"
@@ -296,30 +338,34 @@ export function LotterySettings() {
               type="range"
               min="0"
               max="100"
-              defaultValue={localStorage.getItem('drawingBgAlpha') || '100'}
+              value={bgAlpha}
               onChange={e => {
-                localStorage.setItem('drawingBgAlpha', e.target.value);
+                const value = e.target.value;
+                setBgAlpha(value);
+                localStorage.setItem('drawingBgAlpha', value);
                 window.dispatchEvent(new StorageEvent('storage', {
                   key: 'drawingBgAlpha',
-                  newValue: e.target.value,
+                  newValue: value,
                 }));
               }}
               className="w-32 mx-auto"
             />
             <span className="text-xs text-gray-500 mt-1">
-              {localStorage.getItem('drawingBgAlpha') || '100'}%
+              {bgAlpha}%
             </span>
           </div>
           {/* Font Family */}
           <div className="flex flex-col items-center text-center w-full">
             <label className="text-sm text-gray-700 dark:text-gray-200 mb-1">Jenis Font</label>
             <select
-              defaultValue={localStorage.getItem('drawingFontFamily') || 'sans'}
+              value={fontFamily}
               onChange={e => {
-                localStorage.setItem('drawingFontFamily', e.target.value);
+                const value = e.target.value;
+                setFontFamily(value);
+                localStorage.setItem('drawingFontFamily', value);
                 window.dispatchEvent(new StorageEvent('storage', {
                   key: 'drawingFontFamily',
-                  newValue: e.target.value,
+                  newValue: value,
                 }));
               }}
               className="p-2 rounded border border-gray-300 bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white w-32 mx-auto"

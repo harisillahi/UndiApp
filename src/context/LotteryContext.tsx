@@ -2,6 +2,7 @@
 
 import React, { createContext, useContext, useState, useEffect, ReactNode, useRef } from 'react';
 import { ClientOnly } from '@/components/ClientOnly';
+import type { Participant } from '@/lib/utils';
 
 export interface Prize {
   id: string;
@@ -19,9 +20,19 @@ export interface Winner {
   slotIndex?: number; // Position in the drawing grid
 }
 
+export interface DoorPrize {
+  id: string;
+  name: string;
+  quantity: number;
+  participants: Participant[];
+  csvFileName?: string;
+  winners: Winner[];
+  image?: string;
+}
+
 export interface LotteryState {
   eventName: string;
-  participantRange: string;
+  participants: Participant[]; // CSV-based participants for regular mode
   theme: 'light' | 'dark';
   backgroundImage?: string;
   prizes: Prize[];
@@ -32,14 +43,15 @@ export interface LotteryState {
   drawingNumbers: { [winnerId: string]: string | undefined }; // Current animated numbers
   isGlobalDrawing: boolean; // Main drawing active
   selectedPrizeIds: string[]; // Currently selected prizes for drawing
-  drawMode: 'number' | 'name';
-  participantNames: string;
+  // Door Prize Mode
+  mode: 'regular' | 'doorprize';
+  doorPrizes: DoorPrize[];
 }
 
 interface LotteryContextType {
   state: LotteryState;
   setEventName: (name: string) => void;
-  setParticipantRange: (range: string) => void;
+  setParticipants: (participants: Participant[]) => void;
   setTheme: (theme: 'light' | 'dark') => void;
   setBackgroundImage: (image: string) => void;
   addPrize: (prize: Omit<Prize, 'id'>) => void;
@@ -62,15 +74,20 @@ interface LotteryContextType {
   startIndividualRedraw: (winnerId: string) => void;
   stopIndividualRedraw: (winnerId: string, finalNumber: string) => void;
   createWinnersForPrizes: (prizeIds: string[]) => void;
-  setDrawMode: (mode: 'number' | 'name') => void;
-  setParticipantNames: (names: string) => void;
+  // Door Prize Mode
+  setMode: (mode: 'regular' | 'doorprize') => void;
+  addDoorPrize: (doorPrize: Omit<DoorPrize, 'id' | 'winners'>) => void;
+  updateDoorPrize: (id: string, doorPrize: Partial<DoorPrize>) => void;
+  deleteDoorPrize: (id: string) => void;
+  startDoorPrizeDrawing: () => void;
+  stopDoorPrizeDrawing: () => void;
 }
 
 const LotteryContext = createContext<LotteryContextType | undefined>(undefined);
 
 const initialState: LotteryState = {
   eventName: '',
-  participantRange: '',
+  participants: [],
   theme: 'light',
   backgroundImage: '',
   prizes: [],
@@ -81,19 +98,15 @@ const initialState: LotteryState = {
   drawingNumbers: {},
   isGlobalDrawing: false,
   selectedPrizeIds: [],
-  // Add drawMode and participantNames for name animation
-  drawMode: 'number',
-  participantNames: '',
+  // Door Prize Mode
+  mode: 'regular',
+  doorPrizes: [],
 };
 
 export function LotteryProvider({ children }: { children: ReactNode }) {
   const [state, setState] = useState<LotteryState>(initialState);
-  // Add setters for drawMode and participantNames
-  const setDrawMode = (mode: 'number' | 'name') => {
-    setState(prev => ({ ...prev, drawMode: mode }));
-  };
-  const setParticipantNames = (names: string) => {
-    setState(prev => ({ ...prev, participantNames: names }));
+  const setParticipants = (participants: Participant[]) => {
+    setState(prev => ({ ...prev, participants }));
   };
   const [isHydrated, setIsHydrated] = useState(false);
   const drawingIntervalRef = useRef<NodeJS.Timeout | null>(null);
@@ -114,8 +127,9 @@ export function LotteryProvider({ children }: { children: ReactNode }) {
         // Always reset drawing states on load to prevent stuck states
         setState({
           ...parsedState,
-          participantNames: typeof parsedState.participantNames === 'string' ? parsedState.participantNames : '',
-          drawMode: parsedState.drawMode || 'number',
+          participants: Array.isArray(parsedState.participants) ? parsedState.participants : [],
+          doorPrizes: Array.isArray(parsedState.doorPrizes) ? parsedState.doorPrizes : [],
+          mode: parsedState.mode || 'regular',
           currentRedrawWinnerId: null,
           isDrawing: false,
           isGlobalDrawing: false,
@@ -143,6 +157,8 @@ export function LotteryProvider({ children }: { children: ReactNode }) {
       prizes: state.prizes,
       eventName: state.eventName,
       backgroundImage: state.backgroundImage,
+      mode: state.mode,
+      doorPrizes: state.doorPrizes,
     };
     
     localStorage.setItem('drawingState', JSON.stringify(drawingState));
@@ -155,85 +171,14 @@ export function LotteryProvider({ children }: { children: ReactNode }) {
     }));
   }, [state, isHydrated]);
 
-  // Helper function to parse participant range
-  const parseParticipantRange = (range: string): number[] => {
-    if (!range || range.trim() === '') {
-      const defaultRange = [];
-      for (let i = 1; i <= 100; i++) {
-        defaultRange.push(i);
-      }
-      return defaultRange;
-    }
+  // Helper function to get participant list based on CSV, excluding already drawn winners
+  const getParticipantList = (): Participant[] => {
+    // Get all participants from CSV
+    const allParticipants = state.participants || [];
     
-    // Handle range format like "100-150"
-    if (range.includes('-')) {
-      const [start, end] = range.split('-').map(num => parseInt(num.trim()));
-      if (!isNaN(start) && !isNaN(end) && start <= end) {
-        const numbers = [];
-        for (let i = start; i <= end; i++) {
-          numbers.push(i);
-        }
-        return numbers;
-      }
-    }
-    
-    // Handle comma-separated format like "1,5,10,25"
-    if (range.includes(',')) {
-      const numbers = range.split(',').map(num => parseInt(num.trim())).filter(num => !isNaN(num));
-      return numbers;
-    }
-    
-    // Single number - create range from 1 to that number
-    const num = parseInt(range.trim());
-    if (!isNaN(num) && num > 0) {
-      const numbers = [];
-      for (let i = 1; i <= num; i++) {
-        numbers.push(i);
-      }
-      return numbers;
-    }
-    
-    // Fallback to default range
-    const fallbackRange = [];
-    for (let i = 1; i <= 100; i++) {
-      fallbackRange.push(i);
-    }
-    return fallbackRange;
-  };
-
-  // Helper function to get participant list based on mode, excluding already drawn winners
-  const getParticipantList = (): string[] => {
-    let allParticipants: string[];
-    if (state.drawMode === 'name') {
-      allParticipants = state.participantNames
-        .split('\n')
-        .map((name: string) => name.trim())
-        .filter((name: string) => name.length > 0);
-    } else {
-      // Number mode: use range
-      if (!state.participantRange || state.participantRange.trim() === '') {
-        allParticipants = Array.from({ length: 100 }, (_, i) => (i + 1).toString());
-      } else if (state.participantRange.includes('-')) {
-        const [start, end] = state.participantRange.split('-').map((num: string) => parseInt(num.trim()));
-        if (!isNaN(start) && !isNaN(end) && start <= end) {
-          allParticipants = Array.from({ length: end - start + 1 }, (_, i) => (start + i).toString());
-        } else {
-          allParticipants = [];
-        }
-      } else if (state.participantRange.includes(',')) {
-        allParticipants = state.participantRange.split(',').map((num: string) => num.trim()).filter((num: string) => num.length > 0);
-      } else {
-        const num = parseInt(state.participantRange.trim());
-        if (!isNaN(num) && num > 0) {
-          allParticipants = Array.from({ length: num }, (_, i) => (i + 1).toString());
-        } else {
-          allParticipants = [];
-        }
-      }
-    }
     // Exclude all participantNumbers already assigned to winners (confirmed or not)
     const assigned = state.winners.map(w => w.participantNumber).filter(p => p);
-    return allParticipants.filter(p => !assigned.includes(p));
+    return allParticipants.filter(p => !assigned.includes(p.number));
   };
 
   // Helper function to start drawing animation
@@ -249,7 +194,7 @@ export function LotteryProvider({ children }: { children: ReactNode }) {
       state.winners.forEach(winner => {
         const randomIndex = Math.floor(Math.random() * participants.length);
         const selected = participants[randomIndex];
-        newDrawingNumbers[winner.id] = selected ? selected.toString() : '';
+        newDrawingNumbers[winner.id] = selected ? `${selected.number} - ${selected.name}` : '';
       });
       setState(prev => ({
         ...prev,
@@ -268,7 +213,7 @@ export function LotteryProvider({ children }: { children: ReactNode }) {
     redrawIntervalRef.current = setInterval(() => {
       const randomIndex = Math.floor(Math.random() * participants.length);
       const selected = participants[randomIndex];
-      const newValue = selected ? selected.toString() : '';
+      const newValue = selected ? `${selected.number} - ${selected.name}` : '';
       setState(prev => ({
         ...prev,
         drawingNumbers: {
@@ -281,10 +226,6 @@ export function LotteryProvider({ children }: { children: ReactNode }) {
 
   const setEventName = (name: string) => {
     setState(prev => ({ ...prev, eventName: name }));
-  };
-
-  const setParticipantRange = (range: string) => {
-    setState(prev => ({ ...prev, participantRange: range }));
   };
 
   const setTheme = (theme: 'light' | 'dark') => {
@@ -541,10 +482,168 @@ export function LotteryProvider({ children }: { children: ReactNode }) {
     };
   }, []);
 
+  // Door Prize Mode Methods
+  const setMode = (mode: 'regular' | 'doorprize') => {
+    setState(prev => ({ ...prev, mode }));
+  };
+
+  const addDoorPrize = (doorPrize: Omit<DoorPrize, 'id' | 'winners'>) => {
+    const id = Date.now().toString();
+    setState(prev => ({
+      ...prev,
+      doorPrizes: [...prev.doorPrizes, { ...doorPrize, id, winners: [] }],
+    }));
+  };
+
+  const updateDoorPrize = (id: string, doorPrize: Partial<DoorPrize>) => {
+    setState(prev => ({
+      ...prev,
+      doorPrizes: prev.doorPrizes.map(dp => 
+        dp.id === id ? { ...dp, ...doorPrize } : dp
+      ),
+    }));
+  };
+
+  const deleteDoorPrize = (id: string) => {
+    setState(prev => ({
+      ...prev,
+      doorPrizes: prev.doorPrizes.filter(dp => dp.id !== id),
+    }));
+  };
+
+  const startDoorPrizeDrawing = () => {
+    // Initialize empty winners for all door prizes
+    const updatedDoorPrizes = state.doorPrizes.map((doorPrize) => {
+      const winners: Winner[] = [];
+      for (let i = 0; i < doorPrize.quantity; i++) {
+        const winnerId = `${doorPrize.id}_winner_${i}`;
+        winners.push({
+          id: winnerId,
+          prizeId: doorPrize.id,
+          prizeName: doorPrize.name,
+          participantNumber: '',
+          confirmed: false,
+          slotIndex: i,
+        });
+      }
+      return { ...doorPrize, winners };
+    });
+
+    setState(prev => ({
+      ...prev,
+      isGlobalDrawing: true,
+      drawingNumbers: {},
+      doorPrizes: updatedDoorPrizes,
+    }));
+
+    // Start animation for all door prizes
+    if (drawingIntervalRef.current) {
+      clearInterval(drawingIntervalRef.current);
+    }
+
+    drawingIntervalRef.current = setInterval(() => {
+      const animatedNumbers: { [winnerId: string]: string } = {};
+      
+      // Access current state via setState callback
+      setState(prev => {
+        prev.doorPrizes.forEach((doorPrize) => {
+          const participants = doorPrize.participants;
+          if (participants.length > 0) {
+            for (let i = 0; i < doorPrize.quantity; i++) {
+              const winnerId = `${doorPrize.id}_winner_${i}`;
+              const randomIndex = Math.floor(Math.random() * participants.length);
+              const selected = participants[randomIndex];
+              animatedNumbers[winnerId] = selected ? `${selected.number} - ${selected.name}` : '';
+            }
+          }
+        });
+
+        return {
+          ...prev,
+          drawingNumbers: animatedNumbers,
+        };
+      });
+    }, 100);
+  };
+
+  const stopDoorPrizeDrawing = () => {
+    if (drawingIntervalRef.current) {
+      clearInterval(drawingIntervalRef.current);
+      drawingIntervalRef.current = null;
+    }
+
+    // Finalize winners for each door prize
+    setState(prev => {
+      const updatedDoorPrizes = prev.doorPrizes.map((doorPrize) => {
+        const participants = doorPrize.participants;
+        
+        // Separate targeted and non-targeted participants
+        const targetedParticipants = participants.filter(p => p.target === true);
+        const nonTargetedParticipants = participants.filter(p => !p.target);
+        
+        const usedParticipants = new Set<string>();
+        const winners: Winner[] = [];
+
+        for (let i = 0; i < doorPrize.quantity; i++) {
+          let selected: Participant | undefined;
+          
+          // First, try to use targeted participants
+          if (targetedParticipants.length > 0) {
+            const availableTargets = targetedParticipants.filter(p => !usedParticipants.has(p.number));
+            if (availableTargets.length > 0) {
+              const randomIndex = Math.floor(Math.random() * availableTargets.length);
+              selected = availableTargets[randomIndex];
+            }
+          }
+          
+          // If no targeted participant available, use non-targeted
+          if (!selected && nonTargetedParticipants.length > 0) {
+            const availableNonTargets = nonTargetedParticipants.filter(p => !usedParticipants.has(p.number));
+            if (availableNonTargets.length > 0) {
+              const randomIndex = Math.floor(Math.random() * availableNonTargets.length);
+              selected = availableNonTargets[randomIndex];
+            }
+          }
+          
+          // Fallback to any remaining participant
+          if (!selected) {
+            const remaining = participants.filter(p => !usedParticipants.has(p.number));
+            if (remaining.length > 0) {
+              const randomIndex = Math.floor(Math.random() * remaining.length);
+              selected = remaining[randomIndex];
+            }
+          }
+
+          if (selected) {
+            usedParticipants.add(selected.number);
+            const winnerId = `${doorPrize.id}_winner_${i}`;
+            winners.push({
+              id: winnerId,
+              prizeId: doorPrize.id,
+              prizeName: doorPrize.name,
+              participantNumber: `${selected.number} - ${selected.name}`,
+              confirmed: false,
+              slotIndex: i,
+            });
+          }
+        }
+
+        return { ...doorPrize, winners };
+      });
+
+      return {
+        ...prev,
+        isGlobalDrawing: false,
+        drawingNumbers: {},
+        doorPrizes: updatedDoorPrizes,
+      };
+    });
+  };
+
   const contextValue: LotteryContextType = {
     state,
     setEventName,
-    setParticipantRange,
+    setParticipants,
     setTheme,
     setBackgroundImage,
     addPrize,
@@ -567,8 +666,13 @@ export function LotteryProvider({ children }: { children: ReactNode }) {
     startIndividualRedraw,
     stopIndividualRedraw,
     createWinnersForPrizes,
-    setDrawMode,
-    setParticipantNames,
+    // Door Prize Mode
+    setMode,
+    addDoorPrize,
+    updateDoorPrize,
+    deleteDoorPrize,
+    startDoorPrizeDrawing,
+    stopDoorPrizeDrawing,
   };
 
   return (

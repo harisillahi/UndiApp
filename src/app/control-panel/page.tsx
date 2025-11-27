@@ -6,8 +6,12 @@ import { LotteryProvider, useLottery } from '@/context/LotteryContext';
 import { LotterySettings } from '@/components/LotterySettings';
 import { PrizeInput } from '@/components/PrizeInput';
 import { WinnerList } from '@/components/WinnerList';
+import { ParticipantTable } from '@/components/ParticipantTable';
+import { DoorPrizeInput } from '@/components/DoorPrizeInput';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { parseCSV, validateCSVFile, exportToCSV, type Participant } from '@/lib/utils';
+import { Plus } from 'lucide-react';
 
 // --- LOGIN FORM COMPONENT ---
 function LoginForm({ onLogin }: { onLogin: () => void }) {
@@ -79,13 +83,17 @@ function MainContent() {
     setDrawingNumbers,
     startIndividualRedraw,
     stopIndividualRedraw,
-    setParticipantRange,
-    setDrawMode,
-    setParticipantNames
+    setParticipants,
+    setMode,
+    addDoorPrize,
+    updateDoorPrize,
+    deleteDoorPrize,
+    startDoorPrizeDrawing,
+    stopDoorPrizeDrawing,
   } = useLottery();
-  const drawMode = state.drawMode;
-  const participantNames = state.participantNames;
 
+  const [csvError, setCsvError] = useState<string>('');
+  const [isUploadingCsv, setIsUploadingCsv] = useState(false);
   const [selectedPrizes, setSelectedPrizes] = useState<string[]>([]);
   const [debugInfo, setDebugInfo] = useState({
     startDrawing: 'loading...',
@@ -154,33 +162,38 @@ function MainContent() {
     }
   };
 
-  // --- NEW: Get participant list based on mode ---
-  const getParticipantList = (): string[] => {
-    if (drawMode === 'name') {
-      return participantNames
-        .split('\n')
-        .map((name: string) => name.trim())
-        .filter((name: string) => name.length > 0);
-    } else {
-      // Number mode: use range
-      if (!state.participantRange || state.participantRange.trim() === '') {
-        return Array.from({ length: 100 }, (_, i) => (i + 1).toString());
+  // CSV upload handler
+  const handleCsvUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    setCsvError('');
+    setIsUploadingCsv(true);
+
+    try {
+      const validation = validateCSVFile(file);
+      if (!validation.isValid) {
+        throw new Error(validation.error);
       }
-      if (state.participantRange.includes('-')) {
-        const [start, end] = state.participantRange.split('-').map((num: string) => parseInt(num.trim()));
-        if (!isNaN(start) && !isNaN(end) && start <= end) {
-          return Array.from({ length: end - start + 1 }, (_, i) => (start + i).toString());
-        }
-      }
-      if (state.participantRange.includes(',')) {
-        return state.participantRange.split(',').map((num: string) => num.trim()).filter((num: string) => num.length > 0);
-      }
-      const num = parseInt(state.participantRange.trim());
-      if (!isNaN(num) && num > 0) {
-        return Array.from({ length: num }, (_, i) => (i + 1).toString());
-      }
-      return Array.from({ length: 100 }, (_, i) => (i + 1).toString());
+
+      const text = await file.text();
+      const participants = parseCSV(text);
+      setParticipants(participants);
+      alert(`Berhasil! ${participants.length} peserta dimuat dari CSV.`);
+    } catch (error) {
+      setCsvError(error instanceof Error ? error.message : 'Kesalahan saat membaca CSV');
+    } finally {
+      setIsUploadingCsv(false);
+      // Reset input to allow re-uploading the same file
+      event.target.value = '';
     }
+  };
+
+  // Get available participants excluding already-drawn winners
+  const getParticipantList = (): Participant[] => {
+    const allParticipants = state.participants || [];
+    const assigned = state.winners.map(w => w.participantNumber).filter(p => p);
+    return allParticipants.filter(p => !assigned.includes(p.number));
   };
 
   const handleStartDrawing = () => {
@@ -189,8 +202,8 @@ function MainContent() {
       alert('Pilih minimal satu hadiah terlebih dahulu dengan mencentang checkbox');
       return;
     }
-    if (drawMode === 'name' && getParticipantList().length === 0) {
-      alert('Masukkan minimal satu nama peserta untuk undian nama');
+    if (state.participants.length === 0) {
+      alert('Silakan unggah file CSV peserta terlebih dahulu!');
       return;
     }
     // ...existing code...
@@ -210,12 +223,50 @@ function MainContent() {
   const handleStopDrawing = () => {
     if (typeof window === 'undefined') return;
     const participants = getParticipantList();
+    
+    // Separate targeted and non-targeted participants
+    const targetedParticipants = participants.filter(p => p.target === true);
+    const nonTargetedParticipants = participants.filter(p => !p.target);
+    
     const finalNumbers: { [winnerId: string]: string } = {};
+    const usedParticipants = new Set<string>();
+    
     state.winners.forEach((winner: any) => {
-      const randomIndex = Math.floor(Math.random() * participants.length);
-      const selected = participants[randomIndex];
-      finalNumbers[winner.id] = selected ? selected.toString() : '';
+      let selected;
+      
+      // First, try to use targeted participants
+      if (targetedParticipants.length > 0) {
+        const availableTargets = targetedParticipants.filter(p => !usedParticipants.has(p.number));
+        if (availableTargets.length > 0) {
+          const randomIndex = Math.floor(Math.random() * availableTargets.length);
+          selected = availableTargets[randomIndex];
+        }
+      }
+      
+      // If no targeted participant available, use non-targeted
+      if (!selected && nonTargetedParticipants.length > 0) {
+        const availableNonTargets = nonTargetedParticipants.filter(p => !usedParticipants.has(p.number));
+        if (availableNonTargets.length > 0) {
+          const randomIndex = Math.floor(Math.random() * availableNonTargets.length);
+          selected = availableNonTargets[randomIndex];
+        }
+      }
+      
+      // Fallback to any remaining participant
+      if (!selected) {
+        const remaining = participants.filter(p => !usedParticipants.has(p.number));
+        if (remaining.length > 0) {
+          const randomIndex = Math.floor(Math.random() * remaining.length);
+          selected = remaining[randomIndex];
+        }
+      }
+      
+      if (selected) {
+        usedParticipants.add(selected.number);
+        finalNumbers[winner.id] = `${selected.number} - ${selected.name}`;
+      }
     });
+    
     stopGlobalDrawing(finalNumbers);
     localStorage.removeItem('startDrawing');
     setTimeout(() => {
@@ -264,46 +315,142 @@ function MainContent() {
           </div>
         </div>
 
-        {/* Drawing Mode Toggle & Input */}
-        <div className="mb-6 bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">
-          <div className="flex flex-col gap-4">
-            <div className="flex items-center gap-4">
-              <label className="font-semibold">Mode Undian:</label>
-              <button
-                className={`px-4 py-2 rounded ${drawMode === 'number' ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-800'}`}
-                onClick={() => setDrawMode('number')}
-              >Nomor</button>
-              <button
-                className={`px-4 py-2 rounded ${drawMode === 'name' ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-800'}`}
-                onClick={() => setDrawMode('name')}
-              >Nama</button>
+        {/* Mode Toggle */}
+        <div className="mb-6 bg-white dark:bg-gray-800 rounded-lg shadow-lg p-4">
+          <div className="flex items-center gap-4">
+            <span className="font-semibold text-gray-900 dark:text-white">Mode:</span>
+            <Button
+              variant={state.mode === 'regular' ? 'default' : 'outline'}
+              onClick={() => setMode('regular')}
+            >
+              Mode Regular
+            </Button>
+            <Button
+              variant={state.mode === 'doorprize' ? 'default' : 'outline'}
+              onClick={() => setMode('doorprize')}
+            >
+              Mode Door Prize
+            </Button>
+          </div>
+        </div>
+
+        {/* Door Prize Mode Content */}
+        {state.mode === 'doorprize' ? (
+          <div className="space-y-6">
+            {/* Add Door Prize Button */}
+            <Button
+              onClick={() => addDoorPrize({ name: '', quantity: 1, participants: [] })}
+              className="w-full"
+              size="lg"
+            >
+              <Plus className="mr-2 h-5 w-5" />
+              Tambah Door Prize
+            </Button>
+
+            {/* Door Prize List */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {state.doorPrizes.map((doorPrize, index) => (
+                <DoorPrizeInput
+                  key={doorPrize.id}
+                  doorPrize={doorPrize}
+                  onUpdate={updateDoorPrize}
+                  onDelete={deleteDoorPrize}
+                  index={index}
+                />
+              ))}
             </div>
-            {drawMode === 'name' ? (
-              <div className="mt-2">
-                <label className="block font-medium mb-1">Daftar Nama Peserta (satu per baris)</label>
-                <textarea
-                  className="w-full min-h-[120px] p-2 border rounded"
-                  placeholder="Masukkan nama peserta, satu per baris..."
-                  value={participantNames}
-                  onChange={e => setParticipantNames(e.target.value)}
-                  disabled={state.isGlobalDrawing}
-                />
-                <p className="text-xs text-gray-500 mt-1">Contoh: Andi\nBudi\nCitra\nDewi</p>
-                <p className="text-xs text-gray-500 mt-1">Total peserta: {getParticipantList().length}</p>
-              </div>
-            ) : (
-              <div className="mt-2">
-                <label className="block font-medium mb-1">Rentang Peserta (misal: 1-100)</label>
-                <input
-                  type="text"
-                  className="w-full p-2 border rounded"
-                  value={state.participantRange}
-                  onChange={e => setParticipantRange((e.target as HTMLInputElement).value)}
-                  disabled={state.isGlobalDrawing}
-                />
-                <p className="text-xs text-gray-500 mt-1">Total peserta: {getParticipantList().length}</p>
+
+            {/* Drawing Controls for Door Prize Mode */}
+            {state.doorPrizes.length > 0 && (
+              <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">
+                <div className="flex items-center space-x-3">
+                  <Button
+                    onClick={startDoorPrizeDrawing}
+                    disabled={state.isGlobalDrawing || state.doorPrizes.some(dp => dp.participants.length === 0)}
+                    size="lg"
+                    className="bg-green-600 hover:bg-green-700 disabled:bg-gray-400 disabled:cursor-not-allowed text-white px-8 py-3 text-lg font-semibold"
+                  >
+                    {state.isGlobalDrawing ? 'Mengundi...' : 'MULAI UNDIAN SEMUA DOOR PRIZE'}
+                  </Button>
+                  <Button
+                    onClick={stopDoorPrizeDrawing}
+                    disabled={!state.isGlobalDrawing}
+                    size="lg"
+                    className="bg-red-600 hover:bg-red-700 disabled:bg-gray-400 disabled:cursor-not-allowed text-white px-8 py-3 text-lg font-semibold"
+                  >
+                    BERHENTI
+                  </Button>
+                </div>
+                {state.doorPrizes.some(dp => dp.participants.length === 0) && (
+                  <p className="text-sm text-orange-600 mt-2">
+                    ⚠️ Pastikan semua door prize sudah memiliki file CSV peserta
+                  </p>
+                )}
               </div>
             )}
+
+            {/* Door Prize Winners */}
+            {state.doorPrizes.some(dp => dp.winners.length > 0) && (
+              <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">
+                <h3 className="text-xl font-bold mb-4">Pemenang Door Prize</h3>
+                <div className="space-y-6">
+                  {state.doorPrizes.map((doorPrize) => (
+                    doorPrize.winners.length > 0 && (
+                      <div key={doorPrize.id}>
+                        <h4 className="font-semibold text-lg mb-2">{doorPrize.name}</h4>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2">
+                          {doorPrize.winners.map((winner, idx) => (
+                            <div key={winner.id} className="bg-gray-100 dark:bg-gray-700 p-3 rounded">
+                              <div className="text-sm text-gray-600 dark:text-gray-400">Pemenang {idx + 1}</div>
+                              <div className="font-semibold">{winner.participantNumber}</div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        ) : (
+          /* Regular Mode Content */
+          <>
+
+        {/* CSV Upload & Participant List */}
+        <div className="mb-6 bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">
+          <h3 className="text-lg font-semibold mb-4">Data Peserta</h3>
+          <div className="space-y-4">
+            <div>
+              <label htmlFor="csv-upload" className="block font-medium mb-2">
+                Unggah File CSV Peserta
+              </label>
+              <input
+                id="csv-upload"
+                type="file"
+                accept=".csv"
+                onChange={handleCsvUpload}
+                disabled={isUploadingCsv || state.isGlobalDrawing}
+                className="w-full p-2 border rounded disabled:bg-gray-100 disabled:cursor-not-allowed"
+              />
+              {csvError && (
+                <p className="text-sm text-red-500 mt-2">{csvError}</p>
+              )}
+              {isUploadingCsv && (
+                <p className="text-sm text-blue-500 mt-2">Memproses CSV...</p>
+              )}
+              <p className="text-xs text-gray-500 mt-2">
+                Format CSV: Kolom "number" dan "name" (atau "nomor" dan "nama"). 
+                <br />
+                Contoh: number,name<br />
+                1,Andi<br />
+                2,Budi
+              </p>
+            </div>
+            {/* Participant Table */}
+            <div className="mt-4">
+              <ParticipantTable participants={state.participants} />
+            </div>
           </div>
           {/* Drawing Controls */}
           <div className="flex items-center justify-between mt-6">
@@ -413,6 +560,8 @@ function MainContent() {
             />
           </TabsContent>
         </Tabs>
+        </>
+        )}
 
         {/* Footer */}
         <div className="mt-8 text-center text-sm text-gray-500 dark:text-gray-400">

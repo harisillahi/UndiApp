@@ -13,6 +13,8 @@ interface DrawingState {
   prizes: any[];
   eventName: string;
   backgroundImage?: string;
+  mode?: 'regular' | 'doorprize';
+  doorPrizes?: any[];
 }
 
 interface WinnerSlot {
@@ -37,6 +39,8 @@ export default function DrawingWindowMirror() {
     prizes: [],
     eventName: '',
     backgroundImage: '',
+    mode: 'regular',
+    doorPrizes: [],
   });
   const [showConfetti, setShowConfetti] = useState(false);
   const slotRefs = useRef<{ [winnerId: string]: HTMLDivElement | null }>({});
@@ -202,6 +206,8 @@ export default function DrawingWindowMirror() {
   const prizeGroups = groupSlotsByPrize();
   const hasSelectedPrizes = displayState.selectedPrizeIds && displayState.selectedPrizeIds.length > 0;
   const isDrawing = displayState.isGlobalDrawing || displayState.currentRedrawWinnerId !== null;
+  const isDoorPrizeMode = displayState.mode === 'doorprize';
+  const hasDoorPrizes = isDoorPrizeMode && displayState.doorPrizes && displayState.doorPrizes.length > 0;
 
   function hexToRgba(hex: string, alpha: string | number) {
     let r = 255, g = 255, b = 255;
@@ -263,13 +269,163 @@ export default function DrawingWindowMirror() {
           trigger={showConfetti}
           onComplete={() => setShowConfetti(false)}
         />
-        {hasSelectedPrizes ? (
+        {/* DOOR PRIZE MODE */}
+        {isDoorPrizeMode && hasDoorPrizes ? (
           <>
             {/* Top Header - Event Title */}
             <div className="w-full p-6 text-center">
               {displayState.eventName && (
                 <div
-                  className="inline-block px-6 py-2 rounded-2xl mb-4"
+                  className="inline-block px-6 py-2 rounded-2xl mb-4 backdrop-blur-md border border-white/50 shadow-xl"
+                  style={{ background: hexToRgba(bgColor, bgAlpha) }}
+                >
+                  <h1
+                    style={{ color: eventNameFontColor, fontSize: `${eventNameFontSizePx}px` }}
+                    className="font-bold"
+                  >
+                    {displayState.eventName}
+                  </h1>
+                </div>
+              )}
+            </div>
+            {/* Door Prize Grid */}
+            <div className="flex-1 overflow-x-auto overflow-y-auto p-4 md:p-8">
+              <div className="flex flex-wrap md:flex-nowrap gap-4 md:gap-8 h-full justify-center">
+                {(displayState.doorPrizes || []).map((doorPrize: any) => (
+                  <div key={doorPrize.id} className="flex flex-col gap-4 md:gap-6 h-auto min-h-0" style={{ minWidth: '250px', maxWidth: '350px', flex: '1 1 300px' }}>
+                    {/* Prize Info - Top */}
+                    <div className="flex flex-col items-center">
+                      <div
+                        className="inline-block px-6 py-2 rounded-2xl mb-4 backdrop-blur-md border border-white/50 shadow-xl"
+                        style={{ background: hexToRgba(bgColor, bgAlpha) }}
+                      >
+                        <h2
+                          style={{ color: prizeNameFontColor, fontSize: `${prizeNameFontSizePx}px` }}
+                          className="font-bold text-center"
+                        >
+                          {doorPrize.name}
+                        </h2>
+                      </div>
+                      <div className="flex justify-center mb-4">
+                        {doorPrize.image ? (
+                          <img
+                            src={doorPrize.image}
+                            alt={doorPrize.name}
+                            className="w-32 h-32 md:w-40 md:h-40 object-contain rounded-2xl shadow-2xl"
+                          />
+                        ) : (
+                          <div className="w-32 h-32 md:w-40 md:h-40 bg-gradient-to-br from-yellow-400 to-orange-500 rounded-2xl shadow-2xl flex items-center justify-center">
+                            <span className="text-4xl md:text-5xl">🎁</span>
+                          </div>
+                        )}
+                      </div>
+                      <div
+                        className="backdrop-blur-md rounded-2xl p-3 border border-white/50 shadow-xl"
+                        style={{ background: hexToRgba(bgColor, bgAlpha) }}
+                      >
+                        <span
+                          style={{ color: totalWinnerFontColor, fontSize: `${Math.max(16, parseFloat(totalWinnerFontSizePx) * 0.8)}px` }}
+                          className="font-bold"
+                        >
+                          {doorPrize.quantity} Pemenang
+                        </span>
+                      </div>
+                    </div>
+                    {/* Winner Slots - Bottom */}
+                    <div className="flex-1 flex flex-col justify-center">
+                      <div className="flex flex-col gap-4 items-center">
+                        {Array.from({ length: doorPrize.quantity }).map((_, idx) => {
+                          const winner = doorPrize.winners && doorPrize.winners[idx];
+                          const winnerId = winner?.id || `${doorPrize.id}-slot-${idx}`;
+                          const animatedValue = displayState.drawingNumbers?.[winnerId];
+                          const displayNumber = animatedValue || (winner?.participantNumber ? `${winner.participantNumber}` : '---');
+                          const hasWinner = winner?.participantNumber && !animatedValue;
+                          const isAnimating = !!animatedValue;
+                          return (
+                            <div
+                              key={`${doorPrize.id}-${idx}`}
+                              ref={(el) => {
+                                if (el && winnerId) {
+                                  slotRefs.current[winnerId] = el;
+                                }
+                              }}
+                              className="backdrop-blur-md p-3 md:p-4 rounded-2xl text-center shadow-xl border transition-all duration-500 flex flex-col items-center justify-center group relative w-full"
+                              style={{
+                                background: hexToRgba(bgColor, bgAlpha),
+                                minHeight: 80,
+                              }}
+                            >
+                              {/* Tooltip on hover */}
+                              {displayNumber !== '---' && (
+                                <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-4 py-2 bg-gray-900 text-white text-sm rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none whitespace-nowrap z-50 shadow-lg">
+                                  {displayNumber}
+                                  <div className="absolute top-full left-1/2 transform -translate-x-1/2 -mt-1">
+                                    <div className="border-4 border-transparent border-t-gray-900"></div>
+                                  </div>
+                                </div>
+                              )}
+                              <div className="text-xs mb-2 font-semibold" style={{ color: fontColor }}>
+                                Pemenang {idx + 1}
+                              </div>
+                              <div
+                                style={{
+                                  color: fontColor,
+                                  fontSize: `${parseFloat(fontSizePx) * 0.6}px`,
+                                  fontFamily:
+                                    fontFamily === 'sans'
+                                      ? 'ui-sans-serif, system-ui, sans-serif'
+                                      : fontFamily === 'serif'
+                                      ? 'ui-serif, Georgia, serif'
+                                      : fontFamily === 'mono'
+                                      ? 'ui-monospace, SFMono-Regular, monospace'
+                                      : fontFamily === 'poppins'
+                                      ? "'Poppins', ui-sans-serif, system-ui, sans-serif"
+                                      : fontFamily === 'roboto'
+                                      ? "'Roboto', ui-sans-serif, system-ui, sans-serif"
+                                      : fontFamily === 'nunito'
+                                      ? "'Nunito', ui-sans-serif, system-ui, sans-serif"
+                                      : fontFamily,
+                                }}
+                                className="font-bold overflow-hidden text-ellipsis whitespace-nowrap w-full px-2"
+                              >
+                                {displayNumber}
+                              </div>
+                              {hasWinner && !isAnimating && (
+                                <div className="mt-2">
+                                  <div className="text-xs font-bold animate-bounce" style={{ color: fontColor }}>
+                                    🎉 SELAMAT! 🎉
+                                  </div>
+                                </div>
+                              )}
+                              {isAnimating && (
+                                <div className="mt-2">
+                                  <div className="text-xs font-bold animate-pulse" style={{ color: fontColor }}>
+                                    🎲 Mengundi...
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+              {displayState.isGlobalDrawing && (
+                <div className="fixed bottom-8 left-1/2 transform -translate-x-1/2 bg-red-500/30 backdrop-blur-md border border-red-400/60 px-8 py-4 rounded-2xl font-bold text-2xl text-center animate-pulse shadow-xl" style={{ color: fontColor }}>
+                  MENGUNDI SEMUA DOOR PRIZE...
+                </div>
+              )}
+            </div>
+          </>
+        ) : /* REGULAR MODE */ hasSelectedPrizes ? (
+          <>
+            {/* Top Header - Event Title */}
+            <div className="w-full p-6 text-center">
+              {displayState.eventName && (
+                <div
+                  className="inline-block px-6 py-2 rounded-2xl mb-4 backdrop-blur-md border border-white/50 shadow-xl"
                   style={{ background: hexToRgba(bgColor, bgAlpha) }}
                 >
                   <h1
@@ -282,29 +438,33 @@ export default function DrawingWindowMirror() {
               )}
             </div>
             {/* Main Content Area */}
-            <div className="flex-1 flex">
-              {/* Left Panel - 35% - Prize Information */}
-              <div className="w-[35%] h-full p-8 flex flex-col items-center justify-center">
+            <div className="flex-1 flex flex-col lg:flex-row overflow-auto">
+              {/* Left Panel - Prize Information */}
+              <div className="w-full lg:w-[35%] p-4 md:p-8 flex flex-col items-center justify-center">
                 <div className="space-y-6 w-full">
                   {prizeGroups.map((group, index) => (
                     <div key={group.prize.id} className="text-center">
-                      <h2
-                        style={{ color: prizeNameFontColor, fontSize: `${prizeNameFontSizePx}px` }}
-                        className="font-bold"
+                      <div
+                        className="inline-block px-6 py-2 rounded-2xl mb-4 backdrop-blur-md border border-white/50 shadow-xl"
+                        style={{ background: hexToRgba(bgColor, bgAlpha) }}
                       >
-                        {group.prize.name}
-                      </h2>
+                        <h2
+                          style={{ color: prizeNameFontColor, fontSize: `${prizeNameFontSizePx}px` }}
+                          className="font-bold"
+                        >
+                          {group.prize.name}
+                        </h2>
+                      </div>
                       <div className="flex justify-center mb-6">
                         {group.prize.image ? (
                           <img
                             src={group.prize.image}
                             alt={group.prize.name}
-                            className="max-w-[50vw] max-h-[50vh] object-contain rounded-2xl shadow-2xl"
-                            style={{ aspectRatio: 'auto' }}
+                            className="w-48 h-48 md:w-64 md:h-64 lg:max-w-[30vw] lg:max-h-[30vh] object-contain rounded-2xl shadow-2xl"
                           />
                         ) : (
-                          <div className="w-[30vw] h-[30vh] bg-gradient-to-br from-yellow-400 to-orange-500 rounded-2xl shadow-2xl flex items-center justify-center">
-                            <span className="text-8xl">🎁</span>
+                          <div className="w-48 h-48 md:w-64 md:h-64 lg:w-[25vw] lg:h-[25vh] bg-gradient-to-br from-yellow-400 to-orange-500 rounded-2xl shadow-2xl flex items-center justify-center">
+                            <span className="text-6xl md:text-8xl">🎁</span>
                           </div>
                         )}
                       </div>
@@ -324,20 +484,20 @@ export default function DrawingWindowMirror() {
                 </div>
                 <div className="mt-8 w-full">
                   {displayState.isGlobalDrawing && (
-                    <div className="bg-red-500/30 backdrop-blur-md border border-red-400/60 text-gray-700 px-6 py-4 rounded-2xl font-bold text-xl text-center animate-pulse shadow-xl">
-                      🎲 MENGUNDI... 🎲
+                    <div className="bg-red-500/30 backdrop-blur-md border border-red-400/60 px-6 py-4 rounded-2xl font-bold text-xl text-center animate-pulse shadow-xl" style={{ color: fontColor }}>
+                      MENGUNDI...
                     </div>
                   )}
                   {displayState.currentRedrawWinnerId && (
-                    <div className="bg-orange-500/30 backdrop-blur-md border border-orange-400/60 text-gray-700 px-6 py-4 rounded-2xl font-bold text-xl text-center animate-pulse shadow-xl">
-                      🔄 UNDI ULANG... 🔄
+                    <div className="bg-orange-500/30 backdrop-blur-md border border-orange-400/60 px-6 py-4 rounded-2xl font-bold text-xl text-center animate-pulse shadow-xl" style={{ color: fontColor }}>
+                      UNDI ULANG...
                     </div>
                   )}
                 </div>
               </div>
-              {/* Right Panel - 65% - Winner Slots */}
+              {/* Right Panel - Winner Slots */}
               {showWinnerSlots && (
-                <div className="w-[65%] h-full p-8 flex flex-col justify-center">
+                <div className="w-full lg:w-[65%] p-4 md:p-8 flex flex-col justify-center">
                   <div className="space-y-8">
                     {prizeGroups.map((group) => {
                       // Centered grid logic for winner slots
@@ -359,8 +519,9 @@ export default function DrawingWindowMirror() {
                           <div
                             className="grid w-full place-items-center"
                             style={{
-                              gridTemplateColumns: `repeat(${Math.min(maxColumns, slotCount || 1)}, minmax(250px, 1fr))`, // <-- increased width
-                              gap: "24px",
+                              gridTemplateColumns: `repeat(auto-fit, minmax(200px, 250px))`,
+                              gap: "16px",
+                              justifyContent: "center"
                             }}
                           >
                             {group.slots.map((slot) => {
@@ -376,20 +537,29 @@ export default function DrawingWindowMirror() {
                                       slotRefs.current[slot.winnerId] = el;
                                     }
                                   }}
-                                  className={`backdrop-blur-md p-6 rounded-2xl text-center shadow-xl border transition-all duration-500 flex flex-col items-center justify-center`}
+                                  className={`backdrop-blur-md p-4 md:p-6 rounded-2xl text-center shadow-xl border transition-all duration-500 flex flex-col items-center justify-center group relative w-full`}
                                   style={{
                                     background: hexToRgba(bgColor, bgAlpha),
-                                    minWidth: 250, // <-- increased width
-                                    minHeight: 120,
+                                    maxWidth: 250,
+                                    minHeight: 100,
                                   }}
                                 >
-                                  <div className="text-sm text-gray-700/90 mb-3 font-semibold">
+                                  {/* Tooltip on hover */}
+                                  {displayNumber !== '---' && (
+                                    <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-4 py-2 bg-gray-900 text-white text-sm rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none whitespace-nowrap z-50 shadow-lg">
+                                      {displayNumber}
+                                      <div className="absolute top-full left-1/2 transform -translate-x-1/2 -mt-1">
+                                        <div className="border-4 border-transparent border-t-gray-900"></div>
+                                      </div>
+                                    </div>
+                                  )}
+                                  <div className="text-sm mb-3 font-semibold" style={{ color: fontColor }}>
                                     Pemenang {slot.winnerIndex}
                                   </div>
                                   <div
                                     style={{
                                       color: fontColor,
-                                      fontSize: `${fontSizePx}px`,
+                                      fontSize: `${parseFloat(fontSizePx) * 0.7}px`,
                                       fontFamily:
                                         fontFamily === 'sans'
                                           ? 'ui-sans-serif, system-ui, sans-serif'
@@ -405,20 +575,20 @@ export default function DrawingWindowMirror() {
                                           ? "'Nunito', ui-sans-serif, system-ui, sans-serif"
                                           : fontFamily,
                                     }}
-                                    className="font-bold"
+                                    className="font-bold overflow-hidden text-ellipsis whitespace-nowrap w-full px-2"
                                   >
                                     {displayNumber}
                                   </div>
                                   {hasWinner && !isAnimating && (
                                     <div className="mt-4">
-                                      <div className="text-sm text-green-700 font-bold animate-bounce">
+                                      <div className="text-sm font-bold animate-bounce" style={{ color: fontColor }}>
                                         🎉 SELAMAT! 🎉
                                       </div>
                                     </div>
                                   )}
                                   {isAnimating && (
                                     <div className="mt-4">
-                                      <div className="text-sm text-red-400 font-bold animate-pulse">
+                                      <div className="text-sm font-bold animate-pulse" style={{ color: fontColor }}>
                                         {isCurrentlyRedrawing ? '🔄 Mengundi Ulang...' : '🎲 Mengundi...'}
                                       </div>
                                     </div>
@@ -443,7 +613,7 @@ export default function DrawingWindowMirror() {
           <div className="w-full h-full flex items-center justify-center">
             <div className="text-center bg-white/20 backdrop-blur-md rounded-3xl p-12 border border-white/50 shadow-2xl">
               <h1 className="text-5xl font-bold text-white mb-6 drop-shadow-lg">
-                🎲 Tampilan Undian 🎲
+                Tampilan Undian
               </h1>
               <p className="text-2xl text-gray-700/90">
                 Menunggu hadiah dipilih dari Panel Kontrol...

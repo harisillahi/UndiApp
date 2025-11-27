@@ -1,5 +1,5 @@
 const MAINTENANCE_CONFIG = {
-    enabled: true,              // Change to true to enable
+    enabled: false,              // Change to true to enable
     message: "Pardon our dust!",
     description: "We are performing a quick system upgrade and should be back in a moment. Please check back shortly.",
     estimatedTime: "",

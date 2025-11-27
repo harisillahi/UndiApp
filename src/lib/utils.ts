@@ -135,3 +135,77 @@ export function fileToBase64(file: File): Promise<string> {
 export function generateRandomNumber(min: number, max: number): number {
   return Math.floor(Math.random() * (max - min + 1)) + min;
 }
+
+export interface Participant {
+  number: string;
+  name: string;
+  target?: boolean; // Cheat mode: mark as guaranteed winner
+}
+
+export function parseCSV(csvText: string): Participant[] {
+  const lines = csvText.trim().split('\n');
+  
+  if (lines.length < 2) {
+    throw new Error('CSV harus memiliki header dan minimal satu baris data');
+  }
+  
+  // Detect delimiter (comma or semicolon)
+  const firstLine = lines[0];
+  const delimiter = firstLine.includes(';') ? ';' : ',';
+  
+  // Parse header
+  const header = lines[0].split(delimiter).map(h => h.trim().toLowerCase());
+  const numberIndex = header.findIndex(h => h === 'number' || h === 'nomor' || h === 'no');
+  const nameIndex = header.findIndex(h => h === 'name' || h === 'nama');
+  const targetIndex = header.findIndex(h => h === 'target'); // Optional cheat mode column
+  
+  if (numberIndex === -1 || nameIndex === -1) {
+    throw new Error('CSV harus memiliki kolom "number" dan "name" (atau "nomor" dan "nama")');
+  }
+  
+  // Parse data rows
+  const participants: Participant[] = [];
+  for (let i = 1; i < lines.length; i++) {
+    const line = lines[i].trim();
+    if (!line) continue; // Skip empty lines
+    
+    const values = line.split(delimiter).map(v => v.trim());
+    
+    if (values.length <= Math.max(numberIndex, nameIndex)) {
+      console.warn(`Baris ${i + 1} tidak memiliki cukup kolom, dilewati`);
+      continue;
+    }
+    
+    const number = values[numberIndex];
+    const name = values[nameIndex];
+    const targetValue = targetIndex !== -1 ? values[targetIndex] : undefined;
+    
+    // Parse target as boolean (true, 1, yes -> true, anything else -> false/undefined)
+    const target = targetValue 
+      ? (targetValue.toLowerCase() === 'true' || targetValue === '1' || targetValue.toLowerCase() === 'yes')
+      : undefined;
+    
+    if (number && name) {
+      participants.push({ number, name, target });
+    }
+  }
+  
+  if (participants.length === 0) {
+    throw new Error('Tidak ada data peserta yang valid ditemukan dalam CSV');
+  }
+  
+  return participants;
+}
+
+export function validateCSVFile(file: File): { isValid: boolean; error?: string } {
+  if (file.type !== 'text/csv' && !file.name.endsWith('.csv')) {
+    return { isValid: false, error: 'Harap unggah file CSV saja' };
+  }
+  
+  const maxSize = 5 * 1024 * 1024; // 5MB
+  if (file.size > maxSize) {
+    return { isValid: false, error: 'Ukuran file CSV harus kurang dari 5MB' };
+  }
+  
+  return { isValid: true };
+}

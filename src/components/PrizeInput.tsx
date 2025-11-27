@@ -23,6 +23,8 @@ export function PrizeInput({ selectedPrizes, onPrizeSelectionChange }: PrizeInpu
   const [newPrize, setNewPrize] = useState({ name: '', quantity: 1, image: '' });
   const [imageError, setImageError] = useState<string>('');
   const [isUploading, setIsUploading] = useState(false);
+  const [showSuccessDialog, setShowSuccessDialog] = useState(false);
+  const [showEditDialog, setShowEditDialog] = useState(false);
 
   const handleImageUpload = async (event: React.ChangeEvent<HTMLInputElement>, isEditing = false) => {
     const file = event.target.files?.[0];
@@ -77,6 +79,13 @@ export function PrizeInput({ selectedPrizes, onPrizeSelectionChange }: PrizeInpu
 
     setEditingPrize(null);
     setImageError('');
+    setShowEditDialog(false);
+    setShowSuccessDialog(true);
+    
+    // Auto-close after 2 seconds
+    setTimeout(() => {
+      setShowSuccessDialog(false);
+    }, 2000);
   };
 
   const handlePrizeSelection = (prizeId: string, checked: boolean) => {
@@ -200,72 +209,17 @@ export function PrizeInput({ selectedPrizes, onPrizeSelectionChange }: PrizeInpu
                       </TableCell>
                       <TableCell>
                         <div className="flex space-x-2">
-                          <Dialog>
-                            <DialogTrigger asChild>
-                              <Button 
-                                variant="outline" 
-                                size="sm"
-                                onClick={() => {
-                                  setEditingPrize({ ...prize });
-                                  setImageError('');
-                                }}
-                              >
-                                Edit
-                              </Button>
-                            </DialogTrigger>
-                            <DialogContent className="sm:max-w-md">
-                              <DialogHeader>
-                                <DialogTitle>Berhasil</DialogTitle>
-                              </DialogHeader>
-                              {editingPrize && (
-                                <div className="space-y-4">
-                                  <div className="space-y-2">
-                                    <Label htmlFor="editPrizeName">Nama Hadiah</Label>
-                                    <Input
-                                      id="editPrizeName"
-                                      value={editingPrize.name}
-                                      onChange={(e) => setEditingPrize({ ...editingPrize, name: e.target.value })}
-                                    />
-                                  </div>
-                                  <div className="space-y-2">
-                                    <Label htmlFor="editPrizeQuantity">Jumlah</Label>
-                                    <Input
-                                      id="editPrizeQuantity"
-                                      type="number"
-                                      min="1"
-                                      value={editingPrize.quantity}
-                                      onChange={(e) => setEditingPrize({ ...editingPrize, quantity: parseInt(e.target.value) || 1 })}
-                                    />
-                                  </div>
-                                  <div className="space-y-2">
-                                    <Label htmlFor="editPrizeImage">Gambar Hadiah (PNG atau JPG)</Label>
-                                    <Input
-                                      id="editPrizeImage"
-                                      type="file"
-                                      accept="image/png,image/jpeg,image/jpg"
-                                      onChange={(e) => handleImageUpload(e, true)}
-                                      disabled={isUploading}
-                                    />
-                                    {imageError && <p className="text-sm text-red-500">{imageError}</p>}
-                                    {isUploading && <p className="text-sm text-blue-500">Mengunggah...</p>}
-                                    {editingPrize.image && (
-                                      <div className="mt-2">
-                                        <img src={editingPrize.image} alt="Pratinjau hadiah" className="w-20 h-20 object-cover rounded" />
-                                      </div>
-                                    )}
-                                  </div>
-                                  <div className="flex justify-end space-x-2">
-                                    <Button variant="outline" onClick={() => setEditingPrize(null)}>
-                                      Batal
-                                    </Button>
-                                    <Button onClick={handleEditPrize} disabled={isUploading}>
-                                      Simpan Perubahan
-                                    </Button>
-                                  </div>
-                                </div>
-                              )}
-                            </DialogContent>
-                          </Dialog>
+                          <Button 
+                            variant="outline" 
+                            size="sm"
+                            onClick={() => {
+                              setEditingPrize({ ...prize });
+                              setImageError('');
+                              setShowEditDialog(true);
+                            }}
+                          >
+                            Edit
+                          </Button>
                           <Button 
                             variant="destructive" 
                             size="sm"
@@ -291,6 +245,77 @@ export function PrizeInput({ selectedPrizes, onPrizeSelectionChange }: PrizeInpu
           </div>
         )}
       </CardContent>
+      
+      {/* Edit Prize Dialog */}
+      <Dialog open={showEditDialog} onOpenChange={setShowEditDialog}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Edit Hadiah</DialogTitle>
+          </DialogHeader>
+          {editingPrize && (
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="editPrizeName">Nama Hadiah</Label>
+                <Input
+                  id="editPrizeName"
+                  value={editingPrize.name}
+                  onChange={(e) => setEditingPrize({ ...editingPrize, name: e.target.value })}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="editPrizeQuantity">Jumlah</Label>
+                <Input
+                  id="editPrizeQuantity"
+                  type="number"
+                  min="1"
+                  value={editingPrize.quantity}
+                  onChange={(e) => setEditingPrize({ ...editingPrize, quantity: parseInt(e.target.value) || 1 })}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="editPrizeImage">Gambar Hadiah (PNG atau JPG)</Label>
+                <Input
+                  id="editPrizeImage"
+                  type="file"
+                  accept="image/png,image/jpeg,image/jpg"
+                  onChange={(e) => handleImageUpload(e, true)}
+                  disabled={isUploading}
+                />
+                {imageError && <p className="text-sm text-red-500">{imageError}</p>}
+                {isUploading && <p className="text-sm text-blue-500">Mengunggah...</p>}
+                {editingPrize.image && (
+                  <div className="mt-2">
+                    <img src={editingPrize.image} alt="Pratinjau hadiah" className="w-20 h-20 object-cover rounded" />
+                  </div>
+                )}
+              </div>
+              <div className="flex justify-end space-x-2">
+                <Button variant="outline" onClick={() => {
+                  setEditingPrize(null);
+                  setShowEditDialog(false);
+                }}>
+                  Batal
+                </Button>
+                <Button onClick={handleEditPrize} disabled={isUploading}>
+                  Simpan Perubahan
+                </Button>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+      
+      {/* Success Dialog */}
+      <Dialog open={showSuccessDialog} onOpenChange={setShowSuccessDialog}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Berhasil</DialogTitle>
+          </DialogHeader>
+          <div className="text-center py-4">
+            <p className="text-green-600 font-semibold">✓ Hadiah berhasil diperbarui!</p>
+          </div>
+        </DialogContent>
+      </Dialog>
     </Card>
   );
 }
