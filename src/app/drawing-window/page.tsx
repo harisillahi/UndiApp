@@ -16,6 +16,7 @@ interface DrawingState {
   mode?: 'regular' | 'doorprize';
   doorPrizes?: any[];
   viewMode?: 'grid' | 'list';
+  participants?: any[];
 }
 
 interface WinnerSlot {
@@ -43,6 +44,7 @@ export default function DrawingWindowMirror() {
     mode: 'regular',
     doorPrizes: [],
     viewMode: 'grid',
+    participants: [],
   });
   const [showConfetti, setShowConfetti] = useState(false);
   const slotRefs = useRef<{ [winnerId: string]: HTMLDivElement | null }>({});
@@ -184,6 +186,61 @@ export default function DrawingWindowMirror() {
     });
 
     return Object.values(grouped);
+  };
+
+  // Helper function to parse participant info from winner
+  const getParticipantInfo = (slot: WinnerSlot): { displayText: string; group: string } => {
+    const winner = displayState.winners?.find(w => w.id === slot.winnerId);
+    const animatedValue = displayState.drawingNumbers?.[slot.winnerId];
+    
+    if (animatedValue) {
+      return { displayText: animatedValue, group: '' };
+    }
+    
+    if (winner?.participantNumber) {
+      const displayText = winner.participantNumber;
+      
+      // Try to find participant in participants array to get group info
+      let group = '';
+      if (displayState.participants && displayState.participants.length > 0) {
+        // participantNumber can be "number - name" or just "name"
+        const parts = winner.participantNumber.split(' - ');
+        
+        // Debug logging
+        console.log('Looking for participant:', winner.participantNumber);
+        console.log('Parts:', parts);
+        console.log('Sample participant:', displayState.participants[0]);
+        
+        // Try to find by number first (if it exists)
+        let participant = null;
+        if (parts.length > 1) {
+          // Format is "number - name"
+          const number = parts[0].trim();
+          const name = parts[1].trim();
+          participant = displayState.participants.find((p: any) => 
+            p.number?.toString().trim() === number || p.name?.trim() === name
+          );
+        } else {
+          // Format is just "name"
+          const name = parts[0].trim();
+          participant = displayState.participants.find((p: any) => 
+            p.name?.trim() === name
+          );
+        }
+        
+        console.log('Found participant:', participant);
+        
+        if (participant?.department) {
+          group = participant.department;
+        }
+      } else {
+        console.log('No participants data available:', displayState.participants);
+      }
+      
+      return { displayText, group };
+    }
+    
+    return { displayText: '---', group: '' };
   };
 
   // Get display value for a winner slot (number or name)
@@ -357,9 +414,22 @@ export default function DrawingWindowMirror() {
                                 let department = '';
                                 if (winner?.participantNumber && doorPrize.participants) {
                                   const parts = winner.participantNumber.split(' - ');
-                                  participantNumber = parts[0] || '';
-                                  name = parts[1] || '---';
-                                  const participant = doorPrize.participants.find((p: any) => p.number === participantNumber);
+                                  // If format is "number - name", parts[0] is number and parts[1] is name
+                                  // If format is just "name", parts[0] is name
+                                  if (parts.length > 1 && parts[0].trim() !== '') {
+                                    // Has number column
+                                    participantNumber = parts[0];
+                                    name = parts[1] || participantNumber;
+                                  } else {
+                                    // No number column, just name
+                                    name = parts[0] || winner.participantNumber;
+                                    participantNumber = '';
+                                  }
+                                  
+                                  // Find participant by number or name to get department
+                                  const participant = doorPrize.participants.find((p: any) => 
+                                    participantNumber ? p.number === participantNumber : p.name === name
+                                  );
                                   department = participant?.department || '';
                                 }
                                 
@@ -417,7 +487,15 @@ export default function DrawingWindowMirror() {
                                       }}
                                       className="font-bold flex-1 min-w-0 truncate text-sm"
                                     >
-                                      {isAnimating ? displayNumber : `${name} - ${participantNumber}${department ? ` - ${department}` : ''}`}
+                                      {isAnimating ? displayNumber : (
+                                        <>
+                                          {name}
+                                          {participantNumber && ` - ${participantNumber}`}
+                                          {department && (
+                                            <span className="opacity-75"> ({department})</span>
+                                          )}
+                                        </>
+                                      )}
                                     </div>
                                     {isAnimating && (
                                       <div className="text-sm animate-pulse shrink-0">🎲</div>
@@ -453,9 +531,22 @@ export default function DrawingWindowMirror() {
                           let department = '';
                           if (winner?.participantNumber && doorPrize.participants) {
                             const parts = winner.participantNumber.split(' - ');
-                            participantNumber = parts[0] || '';
-                            name = parts[1] || '---';
-                            const participant = doorPrize.participants.find((p: any) => p.number === participantNumber);
+                            // If format is "number - name", parts[0] is number and parts[1] is name
+                            // If format is just "name", parts[0] is name
+                            if (parts.length > 1 && parts[0].trim() !== '') {
+                              // Has number column
+                              participantNumber = parts[0];
+                              name = parts[1] || participantNumber;
+                            } else {
+                              // No number column, just name
+                              name = parts[0] || winner.participantNumber;
+                              participantNumber = '';
+                            }
+                            
+                            // Find participant by number or name to get department
+                            const participant = doorPrize.participants.find((p: any) => 
+                              participantNumber ? p.number === participantNumber : p.name === name
+                            );
                             department = participant?.department || '';
                           }
                           
@@ -506,8 +597,24 @@ export default function DrawingWindowMirror() {
                                 }}
                                 className="font-bold overflow-hidden text-ellipsis whitespace-nowrap w-full px-2"
                               >
-                                {isAnimating ? displayNumber : `${name} - ${participantNumber}${department ? ` - ${department}` : ''}`}
+                                {isAnimating ? displayNumber : (
+                                  <>
+                                    {name}
+                                    {participantNumber && ` - ${participantNumber}`}
+                                  </>
+                                )}
                               </div>
+                              {!isAnimating && department && (
+                                <div
+                                  style={{
+                                    color: fontColor,
+                                    fontSize: `${parseFloat(fontSizePx) * 0.35}px`,
+                                  }}
+                                  className="text-center opacity-75 mt-1"
+                                >
+                                  {department}
+                                </div>
+                              )}
                               {isAnimating && (
                                 <div className="mt-2">
                                   <div className="text-xs font-bold animate-pulse" style={{ color: fontColor }}>
@@ -637,6 +744,7 @@ export default function DrawingWindowMirror() {
                                 {group.slots.map((slot) => {
                                   const isCurrentlyRedrawing = displayState.currentRedrawWinnerId === slot.winnerId;
                                   const displayNumber = getDisplayNumber(slot);
+                                  const participantInfo = getParticipantInfo(slot);
                                   const isAnimating = displayState.isGlobalDrawing || isCurrentlyRedrawing;
                                   const hasWinner = displayNumber !== '---';
                                   return (
@@ -693,7 +801,14 @@ export default function DrawingWindowMirror() {
                                         }}
                                         className="font-bold flex-1 overflow-hidden text-ellipsis whitespace-nowrap"
                                       >
-                                        {displayNumber}
+                                        {isAnimating ? displayNumber : (
+                                          <>
+                                            {displayNumber}
+                                            {participantInfo.group && (
+                                              <span className="opacity-75 ml-2">({participantInfo.group})</span>
+                                            )}
+                                          </>
+                                        )}
                                       </div>
                                       {hasWinner && !isAnimating && (
                                         <div className="text-sm font-bold" style={{ color: fontColor }}>
@@ -716,6 +831,7 @@ export default function DrawingWindowMirror() {
                               {group.slots.map((slot) => {
                                 const isCurrentlyRedrawing = displayState.currentRedrawWinnerId === slot.winnerId;
                                 const displayNumber = getDisplayNumber(slot);
+                                const participantInfo = getParticipantInfo(slot);
                                 const isAnimating = displayState.isGlobalDrawing || isCurrentlyRedrawing;
                                 const hasWinner = displayNumber !== '---';
                                 return (
@@ -767,6 +883,17 @@ export default function DrawingWindowMirror() {
                                     >
                                       {displayNumber}
                                     </div>
+                                    {!isAnimating && participantInfo.group && (
+                                      <div
+                                        style={{
+                                          color: fontColor,
+                                          fontSize: `${parseFloat(fontSizePx) * 0.4}px`,
+                                        }}
+                                        className="text-center opacity-75 mt-1"
+                                      >
+                                        {participantInfo.group}
+                                      </div>
+                                    )}
                                     {hasWinner && !isAnimating && (
                                       <div className="mt-4">
                                         <div className="text-sm font-bold animate-bounce" style={{ color: fontColor }}>

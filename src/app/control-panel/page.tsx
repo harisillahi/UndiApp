@@ -338,9 +338,27 @@ Selamat menggunakan UndiApp! 🎉`;
     const targetedParticipants = availableParticipants.filter(p => p.targetGP === true);
     const nonTargetedParticipants = availableParticipants.filter(p => !p.targetGP);
     
+    console.log('=== Participant Analysis ===');
+    console.log('Total available participants:', availableParticipants.length);
+    console.log('Targeted for GP:', targetedParticipants.length);
+    console.log('Non-targeted:', nonTargetedParticipants.length);
+    
+    // Debug: Check distribution of non-targeted participants by department
+    const deptDistribution: Record<string, number> = {};
+    nonTargetedParticipants.forEach(p => {
+      const dept = p.department || 'No Department';
+      deptDistribution[dept] = (deptDistribution[dept] || 0) + 1;
+    });
+    console.log('Non-targeted participants by department:', deptDistribution);
+    
     const finalNumbers: { [winnerId: string]: string } = {};
     const usedParticipants = new Set<string>();
     const usedDepartments = new Set<string>();
+    
+    // Helper function to get unique identifier for a participant
+    const getParticipantId = (p: Participant) => {
+      return p.number && p.number.trim() !== '' ? p.number : p.name;
+    };
     
     // Get unique departments from all participants
     const departments = Array.from(new Set(
@@ -355,60 +373,98 @@ Selamat menggunakan UndiApp! 🎉`;
     // Phase 1: Assign all targeted participants first (override department rules)
     const targetedWinners: any[] = [];
     targetedParticipants.forEach(target => {
-      if (targetedWinners.length < totalWinners && !usedParticipants.has(target.number)) {
+      const participantId = getParticipantId(target);
+      if (targetedWinners.length < totalWinners && !usedParticipants.has(participantId)) {
         targetedWinners.push(target);
-        usedParticipants.add(target.number);
+        usedParticipants.add(participantId);
         if (target.department) {
           usedDepartments.add(target.department);
         }
       }
     });
     
-    // Phase 2: Ensure at least 1 winner per department (if departments exist and participants available)
+    // Phase 2: Distribute winners evenly across groups (if enabled)
     const departmentWinners: Participant[] = [];
     if (state.useGroupDistribution && hasDepartments) {
-      departments.forEach(dept => {
-        if (targetedWinners.length + departmentWinners.length >= totalWinners) return;
+      console.log('=== Group Distribution Enabled ===');
+      console.log('Total winners needed:', totalWinners);
+      console.log('Departments:', departments);
+      console.log('Targeted winners:', targetedWinners.length);
+      
+      const remainingSlotsAfterTargeted = totalWinners - targetedWinners.length;
+      
+      // Calculate how many winners each group should get
+      const winnersPerGroup = Math.floor(remainingSlotsAfterTargeted / departments.length);
+      const extraWinners = remainingSlotsAfterTargeted % departments.length;
+      
+      console.log('Winners per group:', winnersPerGroup);
+      console.log('Extra winners to distribute:', extraWinners);
+      
+      // Select winners from each department/group
+      departments.forEach((dept, deptIndex) => {
+        // Calculate how many winners this group should get
+        let groupQuota = winnersPerGroup;
+        if (deptIndex < extraWinners) {
+          groupQuota += 1; // Distribute extra winners to first groups
+        }
         
-        // Skip if this department already has a targeted winner
-        const hasTargetedInDept = targetedWinners.some(t => t.department === dept);
-        if (hasTargetedInDept) return;
+        console.log(`Dept ${dept}: quota=${groupQuota}`);
+        console.log(`UsedParticipants Set size: ${usedParticipants.size}`);
+        console.log(`UsedParticipants contents:`, Array.from(usedParticipants));
         
-        // Find available participant from this department
-        const deptParticipants = nonTargetedParticipants.filter(
-          p => p.department === dept && !usedParticipants.has(p.number)
+        // Find available participants from this department
+        const allDeptParticipants = nonTargetedParticipants.filter(p => p.department === dept);
+        console.log(`Dept ${dept}: Total in dept=${allDeptParticipants.length}`);
+        
+        const deptParticipants = allDeptParticipants.filter(
+          p => !usedParticipants.has(getParticipantId(p))
         );
         
-        // Only add if participant available in this department
-        if (deptParticipants.length > 0) {
+        console.log(`Dept ${dept}: Available after filtering used=${deptParticipants.length}`);
+        
+        // Select winners from this department up to quota
+        const actualToAdd = Math.min(groupQuota, deptParticipants.length);
+        for (let i = 0; i < actualToAdd; i++) {
           const randomIndex = Math.floor(Math.random() * deptParticipants.length);
           const selected = deptParticipants[randomIndex];
           departmentWinners.push(selected);
-          usedParticipants.add(selected.number);
-          usedDepartments.add(dept);
+          usedParticipants.add(getParticipantId(selected));
+          deptParticipants.splice(randomIndex, 1); // Remove to avoid duplicates
         }
-        // If no participant available in this department, skip it and continue
+        
+        console.log(`Dept ${dept}: Selected ${actualToAdd} winners`);
       });
+      
+      console.log('Total department winners selected:', departmentWinners.length);
     }
     
-    // Phase 3: Fill remaining slots with any available participants
-    const remainingSlots = totalWinners - targetedWinners.length - departmentWinners.length;
+    // Phase 3: Fill remaining slots with any available participants (only if group distribution is OFF)
     const remainingWinners: Participant[] = [];
     
-    if (remainingSlots > 0) {
-      const available = nonTargetedParticipants.filter(p => !usedParticipants.has(p.number));
+    if (!state.useGroupDistribution) {
+      const remainingSlots = totalWinners - targetedWinners.length - departmentWinners.length;
       
-      for (let i = 0; i < remainingSlots && available.length > 0; i++) {
-        const randomIndex = Math.floor(Math.random() * available.length);
-        const selected = available[randomIndex];
-        remainingWinners.push(selected);
-        usedParticipants.add(selected.number);
-        available.splice(randomIndex, 1);
+      if (remainingSlots > 0) {
+        const available = nonTargetedParticipants.filter(p => !usedParticipants.has(getParticipantId(p)));
+        
+        for (let i = 0; i < remainingSlots && available.length > 0; i++) {
+          const randomIndex = Math.floor(Math.random() * available.length);
+          const selected = available[randomIndex];
+          remainingWinners.push(selected);
+          usedParticipants.add(getParticipantId(selected));
+          available.splice(randomIndex, 1);
+        }
       }
     }
     
     // Combine all winners: targeted first, then shuffle department + remaining winners
     const nonTargetedWinners = [...departmentWinners, ...remainingWinners];
+    
+    console.log('=== Combining Winners ===');
+    console.log('Targeted winners:', targetedWinners.length);
+    console.log('Department winners:', departmentWinners.length);
+    console.log('Remaining winners:', remainingWinners.length);
+    console.log('Total non-targeted:', nonTargetedWinners.length);
     
     // Shuffle non-targeted winners to make distribution more natural
     for (let i = nonTargetedWinners.length - 1; i > 0; i--) {
@@ -418,6 +474,11 @@ Selamat menggunakan UndiApp! 🎉`;
     
     const allWinners = [...targetedWinners, ...nonTargetedWinners];
     
+    console.log('=== Final Assignment ===');
+    console.log('All winners combined:', allWinners.length);
+    console.log('Winner slots available:', state.winners.length);
+    console.log('Winners:', allWinners.map(w => `${w.name} (${w.department})`));
+    
     // Assign to winner slots
     state.winners.forEach((winner: any, index: number) => {
       if (allWinners[index]) {
@@ -425,8 +486,13 @@ Selamat menggunakan UndiApp! 🎉`;
         finalNumbers[winner.id] = selected.number 
           ? `${selected.number} - ${selected.name}` 
           : selected.name;
+        console.log(`Slot ${index + 1}: ${finalNumbers[winner.id]} from ${selected.department}`);
+      } else {
+        console.log(`Slot ${index + 1}: No winner assigned`);
       }
     });
+    
+    console.log('=== Final Numbers Object ===', finalNumbers);
     
     stopGlobalDrawing(finalNumbers);
     localStorage.removeItem('startDrawing');
@@ -644,7 +710,7 @@ Selamat menggunakan UndiApp! 🎉`;
                 onCheckedChange={(checked) => setUseGroupDistribution(checked === true)}
               />
               <Label htmlFor="useGroupDistribution" className="text-sm font-medium cursor-pointer">
-                Distribusi pemenang berdasarkan Group (minimal 1 pemenang per Group)
+                Distribusi pemenang merata ke semua Group (bagi rata pemenang per Group)
               </Label>
             </div>
             

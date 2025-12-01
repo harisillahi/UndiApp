@@ -169,6 +169,7 @@ export function LotteryProvider({ children }: { children: ReactNode }) {
       mode: state.mode,
       doorPrizes: state.doorPrizes,
       viewMode: state.viewMode,
+      participants: state.participants,
     };
     
     localStorage.setItem('drawingState', JSON.stringify(drawingState));
@@ -600,6 +601,11 @@ export function LotteryProvider({ children }: { children: ReactNode }) {
       drawingIntervalRef.current = null;
     }
 
+    // Helper function to get unique identifier for a participant
+    const getParticipantId = (p: Participant) => {
+      return p.number && p.number.trim() !== '' ? p.number : p.name;
+    };
+
     // Finalize winners for each door prize
     setState(prev => {
       // Track used participants globally across ALL prize modes to prevent duplicates
@@ -608,8 +614,9 @@ export function LotteryProvider({ children }: { children: ReactNode }) {
       // Add grand prize winners to global tracking
       prev.winners.forEach(winner => {
         if (winner.participantNumber) {
-          const participantNum = winner.participantNumber.split(' - ')[0];
-          globalUsedParticipants.add(participantNum);
+          const parts = winner.participantNumber.split(' - ');
+          const participantId = parts[0] && parts[0].trim() !== '' ? parts[0] : parts[1] || winner.participantNumber;
+          globalUsedParticipants.add(participantId);
         }
       });
       
@@ -617,8 +624,8 @@ export function LotteryProvider({ children }: { children: ReactNode }) {
         const participants = doorPrize.participants;
         
         // Separate targeted and non-targeted participants
-        const targetedParticipants = participants.filter(p => p.targetDP === true && !globalUsedParticipants.has(p.number));
-        const nonTargetedParticipants = participants.filter(p => !p.targetDP && !globalUsedParticipants.has(p.number));
+        const targetedParticipants = participants.filter(p => p.targetDP === true && !globalUsedParticipants.has(getParticipantId(p)));
+        const nonTargetedParticipants = participants.filter(p => !p.targetDP && !globalUsedParticipants.has(getParticipantId(p)));
         
         const usedParticipants = new Set<string>();
         
@@ -635,10 +642,11 @@ export function LotteryProvider({ children }: { children: ReactNode }) {
         // Phase 1: Assign all targeted participants first (override department rules)
         const targetedWinners: Participant[] = [];
         targetedParticipants.forEach(target => {
-          if (targetedWinners.length < totalWinners && !usedParticipants.has(target.number)) {
+          const participantId = getParticipantId(target);
+          if (targetedWinners.length < totalWinners && !usedParticipants.has(participantId)) {
             targetedWinners.push(target);
-            usedParticipants.add(target.number);
-            globalUsedParticipants.add(target.number);
+            usedParticipants.add(participantId);
+            globalUsedParticipants.add(participantId);
           }
         });
         
@@ -654,15 +662,16 @@ export function LotteryProvider({ children }: { children: ReactNode }) {
             
             // Find available participant from this department
             const deptParticipants = nonTargetedParticipants.filter(
-              p => p.department === dept && !usedParticipants.has(p.number)
+              p => p.department === dept && !usedParticipants.has(getParticipantId(p))
             );
             
             if (deptParticipants.length > 0) {
               const randomIndex = Math.floor(Math.random() * deptParticipants.length);
               const selected = deptParticipants[randomIndex];
+              const participantId = getParticipantId(selected);
               departmentWinners.push(selected);
-              usedParticipants.add(selected.number);
-              globalUsedParticipants.add(selected.number);
+              usedParticipants.add(participantId);
+              globalUsedParticipants.add(participantId);
             }
           });
         }
@@ -672,14 +681,15 @@ export function LotteryProvider({ children }: { children: ReactNode }) {
         const remainingWinners: Participant[] = [];
         
         if (remainingSlots > 0) {
-          const available = nonTargetedParticipants.filter(p => !usedParticipants.has(p.number));
+          const available = nonTargetedParticipants.filter(p => !usedParticipants.has(getParticipantId(p)));
           
           for (let i = 0; i < remainingSlots && available.length > 0; i++) {
             const randomIndex = Math.floor(Math.random() * available.length);
             const selected = available[randomIndex];
+            const participantId = getParticipantId(selected);
             remainingWinners.push(selected);
-            usedParticipants.add(selected.number);
-            globalUsedParticipants.add(selected.number);
+            usedParticipants.add(participantId);
+            globalUsedParticipants.add(participantId);
             available.splice(randomIndex, 1);
           }
         }
