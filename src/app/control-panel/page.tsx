@@ -9,6 +9,8 @@ import { WinnerList } from '@/components/WinnerList';
 import { ParticipantTable } from '@/components/ParticipantTable';
 import { DoorPrizeInput } from '@/components/DoorPrizeInput';
 import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { parseCSV, validateCSVFile, exportToCSV, type Participant } from '@/lib/utils';
 import { Plus } from 'lucide-react';
@@ -90,6 +92,7 @@ function MainContent() {
     deleteDoorPrize,
     startDoorPrizeDrawing,
     stopDoorPrizeDrawing,
+    setUseDepartmentSort,
   } = useLottery();
 
   const [csvError, setCsvError] = useState<string>('');
@@ -162,6 +165,51 @@ function MainContent() {
     }
   };
 
+  const showInstructions = () => {
+    const instructions = `📋 PANDUAN MENGGUNAKAN UNDIAPP
+
+1️⃣ PERSIAPAN:
+   • Siapkan file CSV dengan kolom: number, name, group (opsional), sub-group (opsional), target gp (opsional), target dp (opsional)
+   • Contoh: 1;Alpha;Marketing;Team A;TRUE;
+
+2️⃣ UPLOAD CSV:
+   • Klik "Browse" dan pilih file CSV Anda
+   • CSV akan digunakan untuk Grand Prize dan Door Prize
+
+3️⃣ GRAND PRIZE:
+   • Pilih Mode Grand Prize
+   • Tambah hadiah dengan tombol "Tambah Hadiah"
+   • Isi nama hadiah dan jumlah pemenang
+   • Centang hadiah yang mau diundi
+   • Klik "Buka Tampilan Undian" untuk membuka layar undian
+   • Klik "Mulai Undian" lalu "Berhenti" untuk mendapatkan pemenang
+
+4️⃣ DOOR PRIZE:
+   • Pilih Mode Door Prize
+   • Tambah door prize dengan tombol "Tambah Door Prize"
+   • Pilih "CSV Master" (gunakan CSV utama) atau "Individual CSV" (upload CSV khusus)
+   • Atur apakah ingin distribusi per group (centang checkbox)
+   • Klik "Mulai Undian Semua Door Prize"
+
+5️⃣ FITUR TARGETING:
+   • Kolom "target gp" = TRUE → Dijamin menang di Grand Prize
+   • Kolom "target dp" = TRUE → Dijamin menang di Door Prize
+   • Pemenang door prize tidak akan diundi lagi di grand prize (dan sebaliknya)
+
+6️⃣ PENGATURAN TAMPILAN:
+   • Scroll ke bawah untuk atur warna, ukuran font, background
+   • Upload gambar background untuk tampilan undian
+
+✅ TIPS:
+   • Pastikan popup tidak diblokir browser
+   • Satu CSV bisa untuk semua mode undian
+   • Gunakan semicolon (;) atau comma (,) sebagai pemisah
+
+Selamat menggunakan UndiApp! 🎉`;
+    
+    alert(instructions);
+  };
+
   // CSV upload handler
   const handleCsvUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -189,10 +237,14 @@ function MainContent() {
     }
   };
 
-  // Get available participants excluding already-drawn winners
+  // Get available participants excluding already-drawn winners across ALL prizes
   const getParticipantList = (): Participant[] => {
     const allParticipants = state.participants || [];
-    const assigned = state.winners.map(w => w.participantNumber).filter(p => p);
+    // Extract participant numbers from all winners (format: "number - name")
+    const assigned = state.winners
+      .map(w => w.participantNumber)
+      .filter(p => p)
+      .map(p => p.split(' - ')[0]); // Extract just the number part
     return allParticipants.filter(p => !assigned.includes(p.number));
   };
 
@@ -224,45 +276,108 @@ function MainContent() {
     if (typeof window === 'undefined') return;
     const participants = getParticipantList();
     
+    // Get all door prize winners to exclude them from grand prize drawing
+    const doorPrizeWinnerNumbers = new Set<string>();
+    state.doorPrizes.forEach(doorPrize => {
+      doorPrize.winners.forEach(winner => {
+        if (winner.participantNumber) {
+          const participantNum = winner.participantNumber.split(' - ')[0];
+          doorPrizeWinnerNumbers.add(participantNum);
+        }
+      });
+    });
+    
+    // Filter out door prize winners from available participants
+    const availableParticipants = participants.filter(p => !doorPrizeWinnerNumbers.has(p.number));
+    
     // Separate targeted and non-targeted participants
-    const targetedParticipants = participants.filter(p => p.target === true);
-    const nonTargetedParticipants = participants.filter(p => !p.target);
+    const targetedParticipants = availableParticipants.filter(p => p.targetGP === true);
+    const nonTargetedParticipants = availableParticipants.filter(p => !p.targetGP);
     
     const finalNumbers: { [winnerId: string]: string } = {};
     const usedParticipants = new Set<string>();
+    const usedDepartments = new Set<string>();
     
-    state.winners.forEach((winner: any) => {
-      let selected;
-      
-      // First, try to use targeted participants
-      if (targetedParticipants.length > 0) {
-        const availableTargets = targetedParticipants.filter(p => !usedParticipants.has(p.number));
-        if (availableTargets.length > 0) {
-          const randomIndex = Math.floor(Math.random() * availableTargets.length);
-          selected = availableTargets[randomIndex];
+    // Get unique departments from all participants
+    const departments = Array.from(new Set(
+      availableParticipants
+        .map(p => p.department)
+        .filter(d => d !== undefined && d !== '')
+    )) as string[];
+    
+    const hasDepartments = departments.length > 0;
+    const totalWinners = state.winners.length;
+    
+    // Phase 1: Assign all targeted participants first (override department rules)
+    const targetedWinners: any[] = [];
+    targetedParticipants.forEach(target => {
+      if (targetedWinners.length < totalWinners && !usedParticipants.has(target.number)) {
+        targetedWinners.push(target);
+        usedParticipants.add(target.number);
+        if (target.department) {
+          usedDepartments.add(target.department);
         }
       }
-      
-      // If no targeted participant available, use non-targeted
-      if (!selected && nonTargetedParticipants.length > 0) {
-        const availableNonTargets = nonTargetedParticipants.filter(p => !usedParticipants.has(p.number));
-        if (availableNonTargets.length > 0) {
-          const randomIndex = Math.floor(Math.random() * availableNonTargets.length);
-          selected = availableNonTargets[randomIndex];
+    });
+    
+    // Phase 2: Ensure at least 1 winner per department (if departments exist and participants available)
+    const departmentWinners: Participant[] = [];
+    if (hasDepartments) {
+      departments.forEach(dept => {
+        if (targetedWinners.length + departmentWinners.length >= totalWinners) return;
+        
+        // Skip if this department already has a targeted winner
+        const hasTargetedInDept = targetedWinners.some(t => t.department === dept);
+        if (hasTargetedInDept) return;
+        
+        // Find available participant from this department
+        const deptParticipants = nonTargetedParticipants.filter(
+          p => p.department === dept && !usedParticipants.has(p.number)
+        );
+        
+        // Only add if participant available in this department
+        if (deptParticipants.length > 0) {
+          const randomIndex = Math.floor(Math.random() * deptParticipants.length);
+          const selected = deptParticipants[randomIndex];
+          departmentWinners.push(selected);
+          usedParticipants.add(selected.number);
+          usedDepartments.add(dept);
         }
-      }
+        // If no participant available in this department, skip it and continue
+      });
+    }
+    
+    // Phase 3: Fill remaining slots with any available participants
+    const remainingSlots = totalWinners - targetedWinners.length - departmentWinners.length;
+    const remainingWinners: Participant[] = [];
+    
+    if (remainingSlots > 0) {
+      const available = nonTargetedParticipants.filter(p => !usedParticipants.has(p.number));
       
-      // Fallback to any remaining participant
-      if (!selected) {
-        const remaining = participants.filter(p => !usedParticipants.has(p.number));
-        if (remaining.length > 0) {
-          const randomIndex = Math.floor(Math.random() * remaining.length);
-          selected = remaining[randomIndex];
-        }
-      }
-      
-      if (selected) {
+      for (let i = 0; i < remainingSlots && available.length > 0; i++) {
+        const randomIndex = Math.floor(Math.random() * available.length);
+        const selected = available[randomIndex];
+        remainingWinners.push(selected);
         usedParticipants.add(selected.number);
+        available.splice(randomIndex, 1);
+      }
+    }
+    
+    // Combine all winners: targeted first, then shuffle department + remaining winners
+    const nonTargetedWinners = [...departmentWinners, ...remainingWinners];
+    
+    // Shuffle non-targeted winners to make distribution more natural
+    for (let i = nonTargetedWinners.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [nonTargetedWinners[i], nonTargetedWinners[j]] = [nonTargetedWinners[j], nonTargetedWinners[i]];
+    }
+    
+    const allWinners = [...targetedWinners, ...nonTargetedWinners];
+    
+    // Assign to winner slots
+    state.winners.forEach((winner: any, index: number) => {
+      if (allWinners[index]) {
+        const selected = allWinners[index];
         finalNumbers[winner.id] = `${selected.number} - ${selected.name}`;
       }
     });
@@ -305,6 +420,13 @@ function MainContent() {
             </div>
             <div className="flex space-x-4">
               <Button 
+                onClick={showInstructions}
+                size="lg"
+                variant="outline"
+              >
+                📖 Panduan
+              </Button>
+              <Button 
                 onClick={openDrawingWindow}
                 size="lg"
                 className="bg-blue-600 hover:bg-blue-700"
@@ -323,7 +445,7 @@ function MainContent() {
               variant={state.mode === 'regular' ? 'default' : 'outline'}
               onClick={() => setMode('regular')}
             >
-              Mode Regular
+              Mode Grand Prize
             </Button>
             <Button
               variant={state.mode === 'doorprize' ? 'default' : 'outline'}
@@ -362,7 +484,19 @@ function MainContent() {
 
             {/* Drawing Controls for Door Prize Mode */}
             {state.doorPrizes.length > 0 && (
-              <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">
+              <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6 space-y-4">
+                {/* Department Sort Toggle */}
+                <div className="flex items-center space-x-3 pb-4 border-b border-gray-200 dark:border-gray-700">
+                  <Checkbox
+                    id="useDepartmentSort"
+                    checked={state.useDepartmentSort}
+                    onCheckedChange={(checked) => setUseDepartmentSort(checked === true)}
+                  />
+                  <Label htmlFor="useDepartmentSort" className="text-sm font-medium cursor-pointer">
+                    Urutkan pemenang berdasarkan departemen (minimal 1 pemenang per departemen)
+                  </Label>
+                </div>
+                
                 <div className="flex items-center space-x-3">
                   <Button
                     onClick={startDoorPrizeDrawing}
@@ -440,11 +574,11 @@ function MainContent() {
                 <p className="text-sm text-blue-500 mt-2">Memproses CSV...</p>
               )}
               <p className="text-xs text-gray-500 mt-2">
-                Format CSV: Kolom "number" dan "name" (atau "nomor" dan "nama"). 
+                Format CSV: Kolom wajib "number","name". Opsional: "group"/"department", "sub-group"/"function", "target gp", "target dp".
                 <br />
-                Contoh: number,name<br />
-                1,Andi<br />
-                2,Budi
+                Contoh: number;name;group;sub-group;target gp;target dp<br />
+                1;Alpha;Marketing;Team A;TRUE;<br />
+                2;Bravo;Finance;Team B;;TRUE
               </p>
             </div>
             {/* Participant Table */}

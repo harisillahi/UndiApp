@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react';
 import type { DoorPrize } from '@/context/LotteryContext';
+import { useLottery } from '@/context/LotteryContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -17,10 +18,26 @@ interface DoorPrizeInputProps {
 }
 
 export function DoorPrizeInput({ doorPrize, onUpdate, onDelete, index }: DoorPrizeInputProps) {
+  const { state } = useLottery();
   const [csvError, setCsvError] = useState<string>('');
   const [imageError, setImageError] = useState<string>('');
   const [isUploadingCsv, setIsUploadingCsv] = useState(false);
   const [isUploadingImage, setIsUploadingImage] = useState(false);
+  const [useControlPanelCsv, setUseControlPanelCsv] = useState(false);
+
+  const handleUseControlPanelCsv = () => {
+    if (state.participants.length === 0) {
+      setCsvError('Tidak ada CSV di Control Panel. Silakan upload CSV di tab Grand Prize terlebih dahulu.');
+      return;
+    }
+    
+    onUpdate(doorPrize.id, { 
+      participants: state.participants, 
+      csvFileName: 'Control Panel CSV' 
+    });
+    setUseControlPanelCsv(true);
+    setCsvError('');
+  };
 
   const handleCsvUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -89,7 +106,7 @@ export function DoorPrizeInput({ doorPrize, onUpdate, onDelete, index }: DoorPri
       </CardHeader>
       <CardContent className="space-y-4">
         {/* Name */}
-        <div>
+        <div className="space-y-2">
           <Label htmlFor={`name-${doorPrize.id}`}>Nama Hadiah</Label>
           <Input
             id={`name-${doorPrize.id}`}
@@ -101,7 +118,7 @@ export function DoorPrizeInput({ doorPrize, onUpdate, onDelete, index }: DoorPri
         </div>
 
         {/* Quantity */}
-        <div>
+        <div className="space-y-2">
           <Label htmlFor={`quantity-${doorPrize.id}`}>Jumlah Pemenang</Label>
           <Input
             id={`quantity-${doorPrize.id}`}
@@ -113,15 +130,38 @@ export function DoorPrizeInput({ doorPrize, onUpdate, onDelete, index }: DoorPri
         </div>
 
         {/* CSV Upload */}
-        <div>
+        <div className="space-y-2">
           <Label htmlFor={`csv-${doorPrize.id}`}>File CSV Peserta</Label>
-          <Input
-            id={`csv-${doorPrize.id}`}
-            type="file"
-            accept=".csv"
-            onChange={handleCsvUpload}
-            disabled={isUploadingCsv}
-          />
+          <div className="flex flex-col sm:flex-row gap-2 mb-2">
+            <Button 
+              type="button"
+              variant={useControlPanelCsv ? "default" : "outline"}
+              size="sm"
+              onClick={handleUseControlPanelCsv}
+              disabled={state.participants.length === 0}
+              className="flex-1"
+            >
+              CSV Master
+            </Button>
+            <Button 
+              type="button"
+              variant={!useControlPanelCsv ? "default" : "outline"}
+              size="sm"
+              onClick={() => setUseControlPanelCsv(false)}
+              className="flex-1"
+            >
+              Individual CSV
+            </Button>
+          </div>
+          {!useControlPanelCsv && (
+            <Input
+              id={`csv-${doorPrize.id}`}
+              type="file"
+              accept=".csv"
+              onChange={handleCsvUpload}
+              disabled={isUploadingCsv}
+            />
+          )}
           {csvError && <p className="text-sm text-red-500 mt-1">{csvError}</p>}
           {isUploadingCsv && <p className="text-sm text-blue-500 mt-1">Memproses CSV...</p>}
           {doorPrize.csvFileName && (
@@ -132,7 +172,7 @@ export function DoorPrizeInput({ doorPrize, onUpdate, onDelete, index }: DoorPri
         </div>
 
         {/* Image Upload */}
-        <div>
+        <div className="space-y-2">
           <Label htmlFor={`image-${doorPrize.id}`}>Gambar Hadiah (Opsional)</Label>
           <Input
             id={`image-${doorPrize.id}`}

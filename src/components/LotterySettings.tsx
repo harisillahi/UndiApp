@@ -205,7 +205,7 @@ export function LotterySettings() {
               className="w-10 h-7 p-0 border-0 bg-transparent"
             />
             <label className="text-sm text-gray-700 dark:text-gray-200 mt-2 mb-1">Ukuran (px)</label>
-            <input
+            <Input
               type="number"
               min={8}
               max={200}
@@ -220,7 +220,7 @@ export function LotterySettings() {
                   newValue: value,
                 }));
               }}
-              className="p-2 rounded border border-gray-300 bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white w-20 mx-auto"
+              className="w-20 mx-auto"
             />
           </div>
           {/* Event Name */}
@@ -241,7 +241,7 @@ export function LotterySettings() {
               className="w-10 h-7 p-0 border-0 bg-transparent"
             />
             <label className="text-sm text-gray-700 dark:text-gray-200 mt-2 mb-1">Ukuran (px)</label>
-            <input
+            <Input
               type="number"
               min={8}
               max={200}
@@ -256,7 +256,7 @@ export function LotterySettings() {
                   newValue: value,
                 }));
               }}
-              className="p-2 rounded border border-gray-300 bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white w-20 mx-auto"
+              className="w-20 mx-auto"
             />
           </div>
           {/* Prize Name */}
@@ -277,7 +277,7 @@ export function LotterySettings() {
               className="w-10 h-7 p-0 border-0 bg-transparent"
             />
             <label className="text-sm text-gray-700 dark:text-gray-200 mt-2 mb-1">Ukuran (px)</label>
-            <input
+            <Input
               type="number"
               min={8}
               max={200}
@@ -292,7 +292,7 @@ export function LotterySettings() {
                   newValue: value,
                 }));
               }}
-              className="p-2 rounded border border-gray-300 bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white w-20 mx-auto"
+              className="w-20 mx-auto"
             />
           </div>
           {/* Total Winner */}
@@ -313,7 +313,7 @@ export function LotterySettings() {
               className="w-10 h-7 p-0 border-0 bg-transparent"
             />
             <label className="text-sm text-gray-700 dark:text-gray-200 mt-2 mb-1">Ukuran (px)</label>
-            <input
+            <Input
               type="number"
               min={8}
               max={200}
@@ -328,7 +328,7 @@ export function LotterySettings() {
                   newValue: value,
                 }));
               }}
-              className="p-2 rounded border border-gray-300 bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white w-20 mx-auto"
+              className="w-20 mx-auto"
             />
           </div>
           {/* Background Transparency */}

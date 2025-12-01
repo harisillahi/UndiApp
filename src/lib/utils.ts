@@ -139,7 +139,10 @@ export function generateRandomNumber(min: number, max: number): number {
 export interface Participant {
   number: string;
   name: string;
-  target?: boolean; // Cheat mode: mark as guaranteed winner
+  department?: string; // Group - for ensuring distribution across groups
+  function?: string; // Sub-group - for display/information only
+  targetGP?: boolean; // Target GP: mark as guaranteed winner in Grand Prize only
+  targetDP?: boolean; // Target DP: mark as guaranteed winner in Door Prize only
 }
 
 export function parseCSV(csvText: string): Participant[] {
@@ -157,7 +160,11 @@ export function parseCSV(csvText: string): Participant[] {
   const header = lines[0].split(delimiter).map(h => h.trim().toLowerCase());
   const numberIndex = header.findIndex(h => h === 'number' || h === 'nomor' || h === 'no');
   const nameIndex = header.findIndex(h => h === 'name' || h === 'nama');
-  const targetIndex = header.findIndex(h => h === 'target'); // Optional cheat mode column
+  // Support both old (department/function) and new (group/sub-group) column names
+  const departmentIndex = header.findIndex(h => h === 'department' || h === 'departemen' || h === 'dept' || h === 'group' || h === 'grup');
+  const functionIndex = header.findIndex(h => h === 'function' || h === 'fungsi' || h === 'jabatan' || h === 'sub-group' || h === 'subgroup' || h === 'sub group');
+  const targetGPIndex = header.findIndex(h => h === 'target gp' || h === 'targetgp' || h === 'target_gp');
+  const targetDPIndex = header.findIndex(h => h === 'target dp' || h === 'targetdp' || h === 'target_dp');
   
   if (numberIndex === -1 || nameIndex === -1) {
     throw new Error('CSV harus memiliki kolom "number" dan "name" (atau "nomor" dan "nama")');
@@ -178,15 +185,28 @@ export function parseCSV(csvText: string): Participant[] {
     
     const number = values[numberIndex];
     const name = values[nameIndex];
-    const targetValue = targetIndex !== -1 ? values[targetIndex] : undefined;
+    const department = departmentIndex !== -1 ? values[departmentIndex]?.trim() : undefined;
+    const functionValue = functionIndex !== -1 ? values[functionIndex]?.trim() : undefined;
+    const targetGPValue = targetGPIndex !== -1 ? values[targetGPIndex] : undefined;
+    const targetDPValue = targetDPIndex !== -1 ? values[targetDPIndex] : undefined;
     
     // Parse target as boolean (true, 1, yes -> true, anything else -> false/undefined)
-    const target = targetValue 
-      ? (targetValue.toLowerCase() === 'true' || targetValue === '1' || targetValue.toLowerCase() === 'yes')
+    const targetGP = targetGPValue 
+      ? (targetGPValue.toLowerCase() === 'true' || targetGPValue === '1' || targetGPValue.toLowerCase() === 'yes')
+      : undefined;
+    const targetDP = targetDPValue 
+      ? (targetDPValue.toLowerCase() === 'true' || targetDPValue === '1' || targetDPValue.toLowerCase() === 'yes')
       : undefined;
     
     if (number && name) {
-      participants.push({ number, name, target });
+      participants.push({ 
+        number, 
+        name, 
+        department: department || undefined,
+        function: functionValue || undefined,
+        targetGP,
+        targetDP
+      });
     }
   }
   

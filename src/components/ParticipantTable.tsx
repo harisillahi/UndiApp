@@ -30,8 +30,14 @@ export function ParticipantTable({ participants }: ParticipantTableProps) {
         <Table>
           <TableHeader className="sticky top-0 bg-gray-100 dark:bg-gray-800 z-10">
             <TableRow>
-              <TableHead className="w-32 font-semibold">Nomor</TableHead>
+              <TableHead className="w-24 font-semibold">Nomor</TableHead>
               <TableHead className="font-semibold">Nama</TableHead>
+              {participants.some(p => p.department) && (
+                <TableHead className="w-32 font-semibold">Group</TableHead>
+              )}
+              {participants.some(p => p.function) && (
+                <TableHead className="w-32 font-semibold">Sub-group</TableHead>
+              )}
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -39,6 +45,12 @@ export function ParticipantTable({ participants }: ParticipantTableProps) {
               <TableRow key={index}>
                 <TableCell className="font-medium">{participant.number}</TableCell>
                 <TableCell>{participant.name}</TableCell>
+                {participants.some(p => p.department) && (
+                  <TableCell>{participant.department || '-'}</TableCell>
+                )}
+                {participants.some(p => p.function) && (
+                  <TableCell>{participant.function || '-'}</TableCell>
+                )}
               </TableRow>
             ))}
           </TableBody>

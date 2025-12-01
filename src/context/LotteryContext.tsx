@@ -46,6 +46,7 @@ export interface LotteryState {
   // Door Prize Mode
   mode: 'regular' | 'doorprize';
   doorPrizes: DoorPrize[];
+  useDepartmentSort: boolean; // Whether to sort door prize winners by department
 }
 
 interface LotteryContextType {
@@ -81,6 +82,7 @@ interface LotteryContextType {
   deleteDoorPrize: (id: string) => void;
   startDoorPrizeDrawing: () => void;
   stopDoorPrizeDrawing: () => void;
+  setUseDepartmentSort: (useDepartmentSort: boolean) => void;
 }
 
 const LotteryContext = createContext<LotteryContextType | undefined>(undefined);
@@ -101,6 +103,7 @@ const initialState: LotteryState = {
   // Door Prize Mode
   mode: 'regular',
   doorPrizes: [],
+  useDepartmentSort: true,
 };
 
 export function LotteryProvider({ children }: { children: ReactNode }) {
@@ -487,6 +490,10 @@ export function LotteryProvider({ children }: { children: ReactNode }) {
     setState(prev => ({ ...prev, mode }));
   };
 
+  const setUseDepartmentSort = (useDepartmentSort: boolean) => {
+    setState(prev => ({ ...prev, useDepartmentSort }));
+  };
+
   const addDoorPrize = (doorPrize: Omit<DoorPrize, 'id' | 'winners'>) => {
     const id = Date.now().toString();
     setState(prev => ({
@@ -574,59 +581,111 @@ export function LotteryProvider({ children }: { children: ReactNode }) {
 
     // Finalize winners for each door prize
     setState(prev => {
+      // Track used participants globally across ALL prize modes to prevent duplicates
+      const globalUsedParticipants = new Set<string>();
+      
+      // Add grand prize winners to global tracking
+      prev.winners.forEach(winner => {
+        if (winner.participantNumber) {
+          const participantNum = winner.participantNumber.split(' - ')[0];
+          globalUsedParticipants.add(participantNum);
+        }
+      });
+      
       const updatedDoorPrizes = prev.doorPrizes.map((doorPrize) => {
         const participants = doorPrize.participants;
         
         // Separate targeted and non-targeted participants
-        const targetedParticipants = participants.filter(p => p.target === true);
-        const nonTargetedParticipants = participants.filter(p => !p.target);
+        const targetedParticipants = participants.filter(p => p.targetDP === true && !globalUsedParticipants.has(p.number));
+        const nonTargetedParticipants = participants.filter(p => !p.targetDP && !globalUsedParticipants.has(p.number));
         
         const usedParticipants = new Set<string>();
-        const winners: Winner[] = [];
-
-        for (let i = 0; i < doorPrize.quantity; i++) {
-          let selected: Participant | undefined;
-          
-          // First, try to use targeted participants
-          if (targetedParticipants.length > 0) {
-            const availableTargets = targetedParticipants.filter(p => !usedParticipants.has(p.number));
-            if (availableTargets.length > 0) {
-              const randomIndex = Math.floor(Math.random() * availableTargets.length);
-              selected = availableTargets[randomIndex];
-            }
+        
+        // Get unique departments from all participants
+        const departments = Array.from(new Set(
+          participants
+            .map(p => p.department)
+            .filter(d => d !== undefined && d !== '')
+        )) as string[];
+        
+        const hasDepartments = departments.length > 0;
+        const totalWinners = doorPrize.quantity;
+        
+        // Phase 1: Assign all targeted participants first (override department rules)
+        const targetedWinners: Participant[] = [];
+        targetedParticipants.forEach(target => {
+          if (targetedWinners.length < totalWinners && !usedParticipants.has(target.number)) {
+            targetedWinners.push(target);
+            usedParticipants.add(target.number);
+            globalUsedParticipants.add(target.number);
           }
-          
-          // If no targeted participant available, use non-targeted
-          if (!selected && nonTargetedParticipants.length > 0) {
-            const availableNonTargets = nonTargetedParticipants.filter(p => !usedParticipants.has(p.number));
-            if (availableNonTargets.length > 0) {
-              const randomIndex = Math.floor(Math.random() * availableNonTargets.length);
-              selected = availableNonTargets[randomIndex];
+        });
+        
+        // Phase 2: Ensure at least 1 winner per department (if departments exist and department sort is enabled)
+        const departmentWinners: Participant[] = [];
+        if (prev.useDepartmentSort && hasDepartments) {
+          departments.forEach(dept => {
+            if (targetedWinners.length + departmentWinners.length >= totalWinners) return;
+            
+            // Skip if this department already has a targeted winner
+            const hasTargetedInDept = targetedWinners.some(t => t.department === dept);
+            if (hasTargetedInDept) return;
+            
+            // Find available participant from this department
+            const deptParticipants = nonTargetedParticipants.filter(
+              p => p.department === dept && !usedParticipants.has(p.number)
+            );
+            
+            if (deptParticipants.length > 0) {
+              const randomIndex = Math.floor(Math.random() * deptParticipants.length);
+              const selected = deptParticipants[randomIndex];
+              departmentWinners.push(selected);
+              usedParticipants.add(selected.number);
+              globalUsedParticipants.add(selected.number);
             }
-          }
+          });
+        }
+        
+        // Phase 3: Fill remaining slots with any available participants
+        const remainingSlots = totalWinners - targetedWinners.length - departmentWinners.length;
+        const remainingWinners: Participant[] = [];
+        
+        if (remainingSlots > 0) {
+          const available = nonTargetedParticipants.filter(p => !usedParticipants.has(p.number));
           
-          // Fallback to any remaining participant
-          if (!selected) {
-            const remaining = participants.filter(p => !usedParticipants.has(p.number));
-            if (remaining.length > 0) {
-              const randomIndex = Math.floor(Math.random() * remaining.length);
-              selected = remaining[randomIndex];
-            }
-          }
-
-          if (selected) {
+          for (let i = 0; i < remainingSlots && available.length > 0; i++) {
+            const randomIndex = Math.floor(Math.random() * available.length);
+            const selected = available[randomIndex];
+            remainingWinners.push(selected);
             usedParticipants.add(selected.number);
-            const winnerId = `${doorPrize.id}_winner_${i}`;
-            winners.push({
-              id: winnerId,
-              prizeId: doorPrize.id,
-              prizeName: doorPrize.name,
-              participantNumber: `${selected.number} - ${selected.name}`,
-              confirmed: false,
-              slotIndex: i,
-            });
+            globalUsedParticipants.add(selected.number);
+            available.splice(randomIndex, 1);
           }
         }
+        
+        // Combine all winners: targeted first, then shuffle department + remaining winners
+        const nonTargetedWinners = [...departmentWinners, ...remainingWinners];
+        
+        // Shuffle non-targeted winners to make distribution more natural
+        for (let i = nonTargetedWinners.length - 1; i > 0; i--) {
+          const j = Math.floor(Math.random() * (i + 1));
+          [nonTargetedWinners[i], nonTargetedWinners[j]] = [nonTargetedWinners[j], nonTargetedWinners[i]];
+        }
+        
+        const allWinners = [...targetedWinners, ...nonTargetedWinners];
+        
+        // Create Winner objects
+        const winners: Winner[] = allWinners.map((selected, i) => {
+          const winnerId = `${doorPrize.id}_winner_${i}`;
+          return {
+            id: winnerId,
+            prizeId: doorPrize.id,
+            prizeName: doorPrize.name,
+            participantNumber: `${selected.number} - ${selected.name}`,
+            confirmed: false,
+            slotIndex: i,
+          };
+        });
 
         return { ...doorPrize, winners };
       });
@@ -673,6 +732,7 @@ export function LotteryProvider({ children }: { children: ReactNode }) {
     deleteDoorPrize,
     startDoorPrizeDrawing,
     stopDoorPrizeDrawing,
+    setUseDepartmentSort,
   };
 
   return (
