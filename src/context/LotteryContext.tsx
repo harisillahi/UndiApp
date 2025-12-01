@@ -200,7 +200,9 @@ export function LotteryProvider({ children }: { children: ReactNode }) {
       state.winners.forEach(winner => {
         const randomIndex = Math.floor(Math.random() * participants.length);
         const selected = participants[randomIndex];
-        newDrawingNumbers[winner.id] = selected ? `${selected.number} - ${selected.name}` : '';
+        newDrawingNumbers[winner.id] = selected 
+          ? (selected.number ? `${selected.number} - ${selected.name}` : selected.name)
+          : '';
       });
       setState(prev => ({
         ...prev,
@@ -219,7 +221,9 @@ export function LotteryProvider({ children }: { children: ReactNode }) {
     redrawIntervalRef.current = setInterval(() => {
       const randomIndex = Math.floor(Math.random() * participants.length);
       const selected = participants[randomIndex];
-      const newValue = selected ? `${selected.number} - ${selected.name}` : '';
+      const newValue = selected 
+        ? (selected.number ? `${selected.number} - ${selected.name}` : selected.name)
+        : '';
       setState(prev => ({
         ...prev,
         drawingNumbers: {
@@ -567,7 +571,9 @@ export function LotteryProvider({ children }: { children: ReactNode }) {
               const winnerId = `${doorPrize.id}_winner_${i}`;
               const randomIndex = Math.floor(Math.random() * participants.length);
               const selected = participants[randomIndex];
-              animatedNumbers[winnerId] = selected ? `${selected.number} - ${selected.name}` : '';
+              animatedNumbers[winnerId] = selected 
+                ? (selected.number ? `${selected.number} - ${selected.name}` : selected.name)
+                : '';
             }
           }
         });
@@ -688,7 +694,9 @@ export function LotteryProvider({ children }: { children: ReactNode }) {
             id: winnerId,
             prizeId: doorPrize.id,
             prizeName: doorPrize.name,
-            participantNumber: `${selected.number} - ${selected.name}`,
+            participantNumber: selected.number 
+              ? `${selected.number} - ${selected.name}`
+              : selected.name,
             confirmed: false,
             slotIndex: i,
           };

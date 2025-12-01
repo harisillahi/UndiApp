@@ -166,24 +166,28 @@ export function parseCSV(csvText: string): Participant[] {
   const targetGPIndex = header.findIndex(h => h === 'target gp' || h === 'targetgp' || h === 'target_gp');
   const targetDPIndex = header.findIndex(h => h === 'target dp' || h === 'targetdp' || h === 'target_dp');
   
-  if (numberIndex === -1 || nameIndex === -1) {
-    throw new Error('CSV harus memiliki kolom "number" dan "name" (atau "nomor" dan "nama")');
+  if (nameIndex === -1) {
+    throw new Error('CSV harus memiliki kolom "name" (atau "nama")');
   }
+  
+  const hasNumberColumn = numberIndex !== -1;
   
   // Parse data rows
   const participants: Participant[] = [];
+  
   for (let i = 1; i < lines.length; i++) {
     const line = lines[i].trim();
     if (!line) continue; // Skip empty lines
     
     const values = line.split(delimiter).map(v => v.trim());
     
-    if (values.length <= Math.max(numberIndex, nameIndex)) {
+    if (values.length <= nameIndex) {
       console.warn(`Baris ${i + 1} tidak memiliki cukup kolom, dilewati`);
       continue;
     }
     
-    const number = values[numberIndex];
+    // Use provided number or leave empty
+    const number = hasNumberColumn && values[numberIndex] ? values[numberIndex] : '';
     const name = values[nameIndex];
     const department = departmentIndex !== -1 ? values[departmentIndex]?.trim() : undefined;
     const functionValue = functionIndex !== -1 ? values[functionIndex]?.trim() : undefined;
@@ -198,7 +202,7 @@ export function parseCSV(csvText: string): Participant[] {
       ? (targetDPValue.toLowerCase() === 'true' || targetDPValue === '1' || targetDPValue.toLowerCase() === 'yes')
       : undefined;
     
-    if (number && name) {
+    if (name) {
       participants.push({ 
         number, 
         name, 

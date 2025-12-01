@@ -170,12 +170,17 @@ function MainContent() {
     const instructions = `📋 PANDUAN MENGGUNAKAN UNDIAPP
 
 1️⃣ PERSIAPAN CSV:
-   • Kolom WAJIB: number, name
-   • Kolom OPSIONAL: group, sub-group, target gp, target dp
-   • Contoh format:
+   • Kolom WAJIB: name
+   • Kolom OPSIONAL: number, group, sub-group, target gp, target dp
+   • Jika kolom "number" tidak ada, undian hanya menampilkan nama
+   • Contoh format TANPA nomor:
+     name;group;sub-group;target gp;target dp
+     Alpha;Marketing;Team A;TRUE;
+     Bravo;Finance;Team B;;TRUE
+   • Contoh format DENGAN nomor:
      number;name;group;sub-group;target gp;target dp
-     1;Alpha;Marketing;Team A;TRUE;
-     2;Bravo;Finance;Team B;;TRUE
+     101;Alpha;Marketing;Team A;TRUE;
+     102;Bravo;Finance;Team B;;TRUE
 
 2️⃣ UPLOAD CSV:
    • Di Mode Grand Prize atau Door Prize, klik "Browse"
@@ -230,10 +235,18 @@ function MainContent() {
    • Kolom target: TRUE/1/yes = dijamin menang
 
 📊 FORMAT CSV LENGKAP:
+
+OPSI 1 - Hanya nama (tanpa nomor):
+name;group;sub-group
+Alpha;Marketing;Team A
+Bravo;Finance;Team B
+Charlie;IT;Team C
+
+OPSI 2 - Dengan nomor custom:
 number;name;group;sub-group;target gp;target dp
-1;Alpha;Marketing;Team A;TRUE;
-2;Bravo;Finance;Team B;;TRUE
-3;Charlie;IT;Team C;;
+101;Alpha;Marketing;Team A;TRUE;
+102;Bravo;Finance;Team B;;TRUE
+103;Charlie;IT;Team C;;
 
 Selamat menggunakan UndiApp! 🎉`;
     
@@ -408,7 +421,9 @@ Selamat menggunakan UndiApp! 🎉`;
     state.winners.forEach((winner: any, index: number) => {
       if (allWinners[index]) {
         const selected = allWinners[index];
-        finalNumbers[winner.id] = `${selected.number} - ${selected.name}`;
+        finalNumbers[winner.id] = selected.number 
+          ? `${selected.number} - ${selected.name}` 
+          : selected.name;
       }
     });
     
@@ -604,11 +619,13 @@ Selamat menggunakan UndiApp! 🎉`;
                 <p className="text-sm text-blue-500 mt-2">Memproses CSV...</p>
               )}
               <p className="text-xs text-gray-500 mt-2">
-                Format CSV: Kolom wajib "number","name". Opsional: "group"/"department", "sub-group"/"function", "target gp", "target dp".
+                Format CSV: Kolom wajib "name". Opsional: "number", "group"/"department", "sub-group"/"function", "target gp", "target dp".
                 <br />
-                Contoh: number;name;group;sub-group;target gp;target dp<br />
-                1;Alpha;Marketing;Team A;TRUE;<br />
-                2;Bravo;Finance;Team B;;TRUE
+                Contoh tanpa nomor: name;group;sub-group<br />
+                Alpha;Marketing;Team A<br />
+                Bravo;Finance;Team B<br />
+                Atau dengan nomor: number;name;group<br />
+                101;Charlie;IT
               </p>
             </div>
             {/* Participant Table */}
