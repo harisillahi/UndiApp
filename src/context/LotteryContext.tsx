@@ -47,6 +47,7 @@ export interface LotteryState {
   mode: 'regular' | 'doorprize';
   doorPrizes: DoorPrize[];
   useDepartmentSort: boolean; // Whether to sort door prize winners by department
+  useGroupDistribution: boolean; // Whether to distribute grand prize winners by group
 }
 
 interface LotteryContextType {
@@ -83,6 +84,7 @@ interface LotteryContextType {
   startDoorPrizeDrawing: () => void;
   stopDoorPrizeDrawing: () => void;
   setUseDepartmentSort: (useDepartmentSort: boolean) => void;
+  setUseGroupDistribution: (useGroupDistribution: boolean) => void;
 }
 
 const LotteryContext = createContext<LotteryContextType | undefined>(undefined);
@@ -104,6 +106,7 @@ const initialState: LotteryState = {
   mode: 'regular',
   doorPrizes: [],
   useDepartmentSort: true,
+  useGroupDistribution: true,
 };
 
 export function LotteryProvider({ children }: { children: ReactNode }) {
@@ -494,6 +497,10 @@ export function LotteryProvider({ children }: { children: ReactNode }) {
     setState(prev => ({ ...prev, useDepartmentSort }));
   };
 
+  const setUseGroupDistribution = (useGroupDistribution: boolean) => {
+    setState(prev => ({ ...prev, useGroupDistribution }));
+  };
+
   const addDoorPrize = (doorPrize: Omit<DoorPrize, 'id' | 'winners'>) => {
     const id = Date.now().toString();
     setState(prev => ({
@@ -733,6 +740,7 @@ export function LotteryProvider({ children }: { children: ReactNode }) {
     startDoorPrizeDrawing,
     stopDoorPrizeDrawing,
     setUseDepartmentSort,
+    setUseGroupDistribution,
   };
 
   return (

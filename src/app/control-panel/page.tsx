@@ -93,6 +93,7 @@ function MainContent() {
     startDoorPrizeDrawing,
     stopDoorPrizeDrawing,
     setUseDepartmentSort,
+    setUseGroupDistribution,
   } = useLottery();
 
   const [csvError, setCsvError] = useState<string>('');
@@ -168,42 +169,71 @@ function MainContent() {
   const showInstructions = () => {
     const instructions = `📋 PANDUAN MENGGUNAKAN UNDIAPP
 
-1️⃣ PERSIAPAN:
-   • Siapkan file CSV dengan kolom: number, name, group (opsional), sub-group (opsional), target gp (opsional), target dp (opsional)
-   • Contoh: 1;Alpha;Marketing;Team A;TRUE;
+1️⃣ PERSIAPAN CSV:
+   • Kolom WAJIB: number, name
+   • Kolom OPSIONAL: group, sub-group, target gp, target dp
+   • Contoh format:
+     number;name;group;sub-group;target gp;target dp
+     1;Alpha;Marketing;Team A;TRUE;
+     2;Bravo;Finance;Team B;;TRUE
 
 2️⃣ UPLOAD CSV:
-   • Klik "Browse" dan pilih file CSV Anda
-   • CSV akan digunakan untuk Grand Prize dan Door Prize
+   • Di Mode Grand Prize atau Door Prize, klik "Browse"
+   • Pilih file CSV Anda
+   • CSV bisa digunakan untuk kedua mode (Grand Prize & Door Prize)
 
-3️⃣ GRAND PRIZE:
-   • Pilih Mode Grand Prize
-   • Tambah hadiah dengan tombol "Tambah Hadiah"
-   • Isi nama hadiah dan jumlah pemenang
-   • Centang hadiah yang mau diundi
-   • Klik "Buka Tampilan Undian" untuk membuka layar undian
-   • Klik "Mulai Undian" lalu "Berhenti" untuk mendapatkan pemenang
+3️⃣ MODE GRAND PRIZE:
+   • Pilih tab "Mode Grand Prize"
+   • Tambah hadiah: klik "Tambah Hadiah"
+   • Isi nama hadiah, jumlah pemenang, upload gambar (opsional)
+   • Centang checkbox hadiah yang mau diundi
+   • DISTRIBUSI GROUP: Centang untuk memastikan minimal 1 pemenang per group
+   • Klik "Buka Tampilan Undian" (jendela baru akan terbuka)
+   • Klik "MULAI UNDIAN" → animasi berjalan
+   • Klik "BERHENTI" → pemenang final ditampilkan
 
-4️⃣ DOOR PRIZE:
-   • Pilih Mode Door Prize
-   • Tambah door prize dengan tombol "Tambah Door Prize"
-   • Pilih "CSV Master" (gunakan CSV utama) atau "Individual CSV" (upload CSV khusus)
-   • Atur apakah ingin distribusi per group (centang checkbox)
-   • Klik "Mulai Undian Semua Door Prize"
+4️⃣ MODE DOOR PRIZE:
+   • Pilih tab "Mode Door Prize"
+   • Tambah door prize: klik "Tambah Door Prize"
+   • Pilih salah satu:
+     - "CSV Master" = gunakan CSV utama dari control panel
+     - "Individual CSV" = upload CSV khusus untuk door prize ini
+   • Isi nama hadiah, jumlah pemenang, upload gambar (opsional)
+   • DISTRIBUSI GROUP: Centang untuk memastikan minimal 1 pemenang per group
+   • Klik "MULAI UNDIAN SEMUA DOOR PRIZE" untuk undi semua sekaligus
+   • Klik "BERHENTI" untuk finalisasi pemenang
 
-5️⃣ FITUR TARGETING:
-   • Kolom "target gp" = TRUE → Dijamin menang di Grand Prize
-   • Kolom "target dp" = TRUE → Dijamin menang di Door Prize
-   • Pemenang door prize tidak akan diundi lagi di grand prize (dan sebaliknya)
+5️⃣ PRIORITAS UNDIAN (Target → Group → Random):
+   • FASE 1 - TARGET: Peserta dengan "target gp=TRUE" atau "target dp=TRUE" dijamin menang
+   • FASE 2 - GROUP: Jika distribusi group aktif, minimal 1 pemenang per group
+   • FASE 3 - RANDOM: Sisa slot diisi secara acak dari peserta tersisa
+   
+6️⃣ FITUR TARGETING:
+   • target gp = TRUE → Dijamin menang di Grand Prize
+   • target dp = TRUE → Dijamin menang di Door Prize
+   • Pemenang Grand Prize otomatis tidak bisa menang Door Prize (begitu juga sebaliknya)
 
-6️⃣ PENGATURAN TAMPILAN:
-   • Scroll ke bawah untuk atur warna, ukuran font, background
-   • Upload gambar background untuk tampilan undian
+7️⃣ PENGATURAN TAMPILAN:
+   • Scroll ke bawah untuk atur:
+     - Warna font (nomor, event, hadiah, total)
+     - Ukuran font (dalam pixel)
+     - Transparansi background
+     - Jenis font (Sans, Serif, Mono, Poppins, Roboto, Nunito)
+   • Upload gambar background untuk jendela undian
+   • Pengaturan langsung terlihat di jendela undian
 
-✅ TIPS:
-   • Pastikan popup tidak diblokir browser
-   • Satu CSV bisa untuk semua mode undian
+✅ TIPS PENTING:
+   • Pastikan browser TIDAK memblokir popup
+   • Satu CSV bisa dipakai untuk semua mode undian
    • Gunakan semicolon (;) atau comma (,) sebagai pemisah
+   • Nama kolom case-insensitive (Group = group = GROUP)
+   • Kolom target: TRUE/1/yes = dijamin menang
+
+📊 FORMAT CSV LENGKAP:
+number;name;group;sub-group;target gp;target dp
+1;Alpha;Marketing;Team A;TRUE;
+2;Bravo;Finance;Team B;;TRUE
+3;Charlie;IT;Team C;;
 
 Selamat menggunakan UndiApp! 🎉`;
     
@@ -322,7 +352,7 @@ Selamat menggunakan UndiApp! 🎉`;
     
     // Phase 2: Ensure at least 1 winner per department (if departments exist and participants available)
     const departmentWinners: Participant[] = [];
-    if (hasDepartments) {
+    if (state.useGroupDistribution && hasDepartments) {
       departments.forEach(dept => {
         if (targetedWinners.length + departmentWinners.length >= totalWinners) return;
         
@@ -493,7 +523,7 @@ Selamat menggunakan UndiApp! 🎉`;
                     onCheckedChange={(checked) => setUseDepartmentSort(checked === true)}
                   />
                   <Label htmlFor="useDepartmentSort" className="text-sm font-medium cursor-pointer">
-                    Urutkan pemenang berdasarkan departemen (minimal 1 pemenang per departemen)
+                    Urutkan pemenang berdasarkan Group (minimal 1 pemenang per Group)
                   </Label>
                 </div>
                 
@@ -587,7 +617,20 @@ Selamat menggunakan UndiApp! 🎉`;
             </div>
           </div>
           {/* Drawing Controls */}
-          <div className="flex items-center justify-between mt-6">
+          <div className="mt-6 space-y-4">
+            {/* Group Distribution Toggle for Grand Prize */}
+            <div className="flex items-center space-x-3 pb-4 border-b border-gray-200 dark:border-gray-700">
+              <Checkbox
+                id="useGroupDistribution"
+                checked={state.useGroupDistribution}
+                onCheckedChange={(checked) => setUseGroupDistribution(checked === true)}
+              />
+              <Label htmlFor="useGroupDistribution" className="text-sm font-medium cursor-pointer">
+                Distribusi pemenang berdasarkan Group (minimal 1 pemenang per Group)
+              </Label>
+            </div>
+            
+            <div className="flex items-center justify-between">
             <div className="flex items-center space-x-3">
               <Button
                 onClick={handleStartDrawing}
@@ -633,6 +676,7 @@ Selamat menggunakan UndiApp! 🎉`;
                   </p>
                 </div>
               )}
+            </div>
             </div>
           </div>
         </div>
