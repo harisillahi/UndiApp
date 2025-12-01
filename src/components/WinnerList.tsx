@@ -14,7 +14,7 @@ interface WinnerListProps {
 }
 
 export function WinnerList({ onStartIndividualRedraw, onStopIndividualRedraw }: WinnerListProps) {
-  const { state, updateWinner, clearWinners } = useLottery();
+  const { state, updateWinner, clearWinners, setViewMode } = useLottery();
 
   const handleConfirmWinner = (winnerId: string) => {
     updateWinner(winnerId, { confirmed: true });
@@ -143,9 +143,26 @@ export function WinnerList({ onStartIndividualRedraw, onStopIndividualRedraw }: 
       <CardHeader>
         <CardTitle className="text-xl font-semibold flex justify-between items-center">
           Daftar Pemenang
-          <div className="flex space-x-2">
+          <div className="flex items-center space-x-2">
             {state.winners.length > 0 && (
               <>
+                <div className="flex items-center space-x-2 mr-4">
+                  <label className="text-sm font-medium">Tampilan:</label>
+                  <Button 
+                    variant={state.viewMode === 'grid' ? 'default' : 'outline'}
+                    size="sm"
+                    onClick={() => setViewMode('grid')}
+                  >
+                    Grid
+                  </Button>
+                  <Button 
+                    variant={state.viewMode === 'list' ? 'default' : 'outline'}
+                    size="sm"
+                    onClick={() => setViewMode('list')}
+                  >
+                    List
+                  </Button>
+                </div>
                 <Button 
                   variant="outline" 
                   size="sm"
@@ -209,19 +226,20 @@ export function WinnerList({ onStartIndividualRedraw, onStopIndividualRedraw }: 
               </div>
             )}
 
-            {/* Winners Table */}
-            <div className="overflow-x-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Nama Hadiah</TableHead>
-                    <TableHead>Nomor Pemenang</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead>Aksi</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {state.winners.map((winner) => {
+            {/* Winners Display - Grid or List */}
+            {state.viewMode === 'list' ? (
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Nama Hadiah</TableHead>
+                      <TableHead>Nomor Pemenang</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead>Aksi</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {state.winners.map((winner) => {
                     const isBeingRedrawn = state.currentRedrawWinnerId === winner.id;
                     const isGlobalDrawing = state.isGlobalDrawing;
                     const displayNumber = getDisplayNumber(winner);
@@ -296,10 +314,87 @@ export function WinnerList({ onStartIndividualRedraw, onStopIndividualRedraw }: 
                         </TableCell>
                       </TableRow>
                     );
-                  })}
-                </TableBody>
-              </Table>
-            </div>
+                    })}
+                  </TableBody>
+                </Table>
+              </div>
+            ) : (
+              /* Grid View */
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {state.winners.map((winner) => {
+                  const isBeingRedrawn = state.currentRedrawWinnerId === winner.id;
+                  const isGlobalDrawing = state.isGlobalDrawing;
+                  const displayNumber = getDisplayNumber(winner);
+                  const isAnimating = isBeingRedrawn || isGlobalDrawing;
+                  
+                  return (
+                    <Card key={winner.id} className={`${isBeingRedrawn ? 'border-orange-400 bg-orange-50' : ''}`}>
+                      <CardHeader className="pb-3">
+                        <CardTitle className="text-base font-semibold">{winner.prizeName}</CardTitle>
+                      </CardHeader>
+                      <CardContent className="space-y-3">
+                        <div className="flex flex-col items-center justify-center p-4 bg-gray-50 rounded-lg min-h-[80px]">
+                          <span 
+                            className={`font-mono text-2xl font-bold ${
+                              isAnimating ? 'text-red-600 animate-pulse' : 'text-green-600'
+                            }`}
+                          >
+                            {displayNumber}
+                          </span>
+                        </div>
+                        <div className="flex justify-center">
+                          {isBeingRedrawn ? (
+                            <Badge variant="secondary" className="bg-orange-100 text-orange-800 animate-pulse">
+                              Mengundi ulang...
+                            </Badge>
+                          ) : isGlobalDrawing ? (
+                            <Badge variant="secondary" className="bg-blue-100 text-blue-800 animate-pulse">
+                              Mengundi...
+                            </Badge>
+                          ) : (
+                            <Badge 
+                              variant={winner.confirmed ? "default" : "secondary"}
+                              className={winner.confirmed ? "bg-green-100 text-green-800" : "bg-orange-100 text-orange-800"}
+                            >
+                              {winner.confirmed ? 'Dikonfirmasi' : 'Menunggu'}
+                            </Badge>
+                          )}
+                        </div>
+                        <div className="flex flex-col gap-2">
+                          <Button 
+                            variant="outline" 
+                            size="sm"
+                            onClick={() => handleRedrawWinner(winner.id)}
+                            disabled={!winner.participantNumber || isGlobalDrawing || isBeingRedrawn}
+                            className="w-full"
+                          >
+                            Undi Ulang
+                          </Button>
+                          <Button 
+                            variant="default" 
+                            size="sm"
+                            onClick={() => handleConfirmWinner(winner.id)}
+                            disabled={!winner.participantNumber || winner.confirmed || isGlobalDrawing || isBeingRedrawn}
+                            className="w-full"
+                          >
+                            Konfirmasi
+                          </Button>
+                          <Button 
+                            variant="destructive" 
+                            size="sm"
+                            onClick={() => handleStopRedraw(winner.id)}
+                            disabled={!isBeingRedrawn}
+                            className={`w-full ${isBeingRedrawn ? "animate-pulse" : ""}`}
+                          >
+                            Berhenti
+                          </Button>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  );
+                })}
+              </div>
+            )}
 
             {/* Event Info */}
             {state.eventName && (

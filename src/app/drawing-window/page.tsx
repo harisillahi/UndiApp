@@ -15,6 +15,7 @@ interface DrawingState {
   backgroundImage?: string;
   mode?: 'regular' | 'doorprize';
   doorPrizes?: any[];
+  viewMode?: 'grid' | 'list';
 }
 
 interface WinnerSlot {
@@ -41,6 +42,7 @@ export default function DrawingWindowMirror() {
     backgroundImage: '',
     mode: 'regular',
     doorPrizes: [],
+    viewMode: 'grid',
   });
   const [showConfetti, setShowConfetti] = useState(false);
   const slotRefs = useRef<{ [winnerId: string]: HTMLDivElement | null }>({});
@@ -612,7 +614,7 @@ export default function DrawingWindowMirror() {
                   <div className="space-y-8">
                     {prizeGroups.map((group) => {
                       // Centered grid logic for winner slots
-                      const maxColumns = 4;
+                      const maxColumns = 3;
                       const slotCount = group.slots.length;
                       const remainder = slotCount % maxColumns;
                       const dummyCount = slotCount === 0 ? 0 : remainder === 0 ? 0 : maxColumns - remainder;
@@ -627,91 +629,167 @@ export default function DrawingWindowMirror() {
                               </h2>
                             </div>
                           )}
-                          {/* Winner Slots for this prize - Always use grid/card layout for regular mode */}
-                          <div
-                            className="grid w-full place-items-center"
-                            style={{
-                              gridTemplateColumns: `repeat(auto-fit, minmax(max(150px, min(200px, 100%)), 1fr))`,
-                              gap: "clamp(8px, 2vw, 16px)",
-                              justifyContent: "center"
-                            }}
-                          >
-                            {group.slots.map((slot) => {
-                              const isCurrentlyRedrawing = displayState.currentRedrawWinnerId === slot.winnerId;
-                              const displayNumber = getDisplayNumber(slot);
-                              const isAnimating = displayState.isGlobalDrawing || isCurrentlyRedrawing;
-                              const hasWinner = displayNumber !== '---';
-                              return (
-                                <div
-                                  key={`${slot.prizeId}-${slot.winnerIndex}`}
-                                  ref={(el) => {
-                                    if (el && slot.winnerId) {
-                                      slotRefs.current[slot.winnerId] = el;
-                                    }
-                                  }}
-                                  className={`backdrop-blur-md p-3 sm:p-4 md:p-6 rounded-2xl text-center shadow-xl border transition-all duration-500 flex flex-col items-center justify-center group relative w-full`}
-                                  style={{
-                                    background: hexToRgba(bgColor, bgAlpha),
-                                    minHeight: "clamp(80px, 15vh, 120px)",
-                                  }}
-                                >
-                                  {/* Tooltip on hover */}
-                                  {displayNumber !== '---' && (
-                                    <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-4 py-2 bg-gray-900 text-white text-sm rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none whitespace-nowrap z-50 shadow-lg">
-                                      {displayNumber}
-                                      <div className="absolute top-full left-1/2 transform -translate-x-1/2 -mt-1">
-                                        <div className="border-4 border-transparent border-t-gray-900"></div>
+                          {/* Winner Slots for this prize - Grid or List View */}
+                          {displayState.viewMode === 'list' ? (
+                            /* List View */
+                            <div className="backdrop-blur-md rounded-2xl shadow-xl border border-white/50 p-4" style={{ background: hexToRgba(bgColor, bgAlpha) }}>
+                              <div className="space-y-2">
+                                {group.slots.map((slot) => {
+                                  const isCurrentlyRedrawing = displayState.currentRedrawWinnerId === slot.winnerId;
+                                  const displayNumber = getDisplayNumber(slot);
+                                  const isAnimating = displayState.isGlobalDrawing || isCurrentlyRedrawing;
+                                  const hasWinner = displayNumber !== '---';
+                                  return (
+                                    <div
+                                      key={`${slot.prizeId}-${slot.winnerIndex}`}
+                                      ref={(el) => {
+                                        if (el && slot.winnerId) {
+                                          slotRefs.current[slot.winnerId] = el;
+                                        }
+                                      }}
+                                      className="flex items-center gap-4 py-3 px-4 rounded-lg border border-white/40 bg-white/5 hover:bg-white/10 transition-all"
+                                    >
+                                      <div
+                                        style={{
+                                          color: fontColor,
+                                          fontSize: `${parseFloat(fontSizePx) * 0.4}px`,
+                                          fontFamily:
+                                            fontFamily === 'sans'
+                                              ? 'ui-sans-serif, system-ui, sans-serif'
+                                              : fontFamily === 'serif'
+                                              ? 'ui-serif, Georgia, serif'
+                                              : fontFamily === 'mono'
+                                              ? 'ui-monospace, SFMono-Regular, monospace'
+                                              : fontFamily === 'poppins'
+                                              ? "'Poppins', ui-sans-serif, system-ui, sans-serif"
+                                              : fontFamily === 'roboto'
+                                              ? "'Roboto', ui-sans-serif, system-ui, sans-serif"
+                                              : fontFamily === 'nunito'
+                                              ? "'Nunito', ui-sans-serif, system-ui, sans-serif"
+                                              : fontFamily,
+                                        }}
+                                        className="font-bold whitespace-nowrap"
+                                      >
+                                        {slot.winnerIndex}.
                                       </div>
+                                      <div
+                                        style={{
+                                          color: fontColor,
+                                          fontSize: `${parseFloat(fontSizePx) * 0.6}px`,
+                                          fontFamily:
+                                            fontFamily === 'sans'
+                                              ? 'ui-sans-serif, system-ui, sans-serif'
+                                              : fontFamily === 'serif'
+                                              ? 'ui-serif, Georgia, serif'
+                                              : fontFamily === 'mono'
+                                              ? 'ui-monospace, SFMono-Regular, monospace'
+                                              : fontFamily === 'poppins'
+                                              ? "'Poppins', ui-sans-serif, system-ui, sans-serif"
+                                              : fontFamily === 'roboto'
+                                              ? "'Roboto', ui-sans-serif, system-ui, sans-serif"
+                                              : fontFamily === 'nunito'
+                                              ? "'Nunito', ui-sans-serif, system-ui, sans-serif"
+                                              : fontFamily,
+                                        }}
+                                        className="font-bold flex-1 overflow-hidden text-ellipsis whitespace-nowrap"
+                                      >
+                                        {displayNumber}
+                                      </div>
+                                      {hasWinner && !isAnimating && (
+                                        <div className="text-sm font-bold" style={{ color: fontColor }}>
+                                          🎉
+                                        </div>
+                                      )}
+                                      {isAnimating && (
+                                        <div className="text-sm font-bold animate-pulse" style={{ color: fontColor }}>
+                                          {isCurrentlyRedrawing ? '🔄' : '🎲'}
+                                        </div>
+                                      )}
                                     </div>
-                                  )}
-                                  <div className="text-sm mb-3 font-semibold" style={{ color: fontColor }}>
-                                    Pemenang {slot.winnerIndex}
-                                  </div>
+                                  );
+                                })}
+                              </div>
+                            </div>
+                          ) : (
+                            /* Grid View */
+                            <div className="grid w-full gap-4 place-items-center grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
+                              {group.slots.map((slot) => {
+                                const isCurrentlyRedrawing = displayState.currentRedrawWinnerId === slot.winnerId;
+                                const displayNumber = getDisplayNumber(slot);
+                                const isAnimating = displayState.isGlobalDrawing || isCurrentlyRedrawing;
+                                const hasWinner = displayNumber !== '---';
+                                return (
                                   <div
-                                    style={{
-                                      color: fontColor,
-                                      fontSize: `${parseFloat(fontSizePx) * 0.7}px`,
-                                      fontFamily:
-                                        fontFamily === 'sans'
-                                          ? 'ui-sans-serif, system-ui, sans-serif'
-                                          : fontFamily === 'serif'
-                                          ? 'ui-serif, Georgia, serif'
-                                          : fontFamily === 'mono'
-                                          ? 'ui-monospace, SFMono-Regular, monospace'
-                                          : fontFamily === 'poppins'
-                                          ? "'Poppins', ui-sans-serif, system-ui, sans-serif"
-                                          : fontFamily === 'roboto'
-                                          ? "'Roboto', ui-sans-serif, system-ui, sans-serif"
-                                          : fontFamily === 'nunito'
-                                          ? "'Nunito', ui-sans-serif, system-ui, sans-serif"
-                                          : fontFamily,
+                                    key={`${slot.prizeId}-${slot.winnerIndex}`}
+                                    ref={(el) => {
+                                      if (el && slot.winnerId) {
+                                        slotRefs.current[slot.winnerId] = el;
+                                      }
                                     }}
-                                    className="font-bold overflow-hidden text-ellipsis whitespace-nowrap w-full px-2"
+                                    className={`backdrop-blur-md p-3 sm:p-4 md:p-6 rounded-2xl text-center shadow-xl border transition-all duration-500 flex flex-col items-center justify-center group relative w-full`}
+                                    style={{
+                                      background: hexToRgba(bgColor, bgAlpha),
+                                      minHeight: "clamp(80px, 15vh, 120px)",
+                                    }}
                                   >
-                                    {displayNumber}
+                                    {/* Tooltip on hover */}
+                                    {displayNumber !== '---' && (
+                                      <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-4 py-2 bg-gray-900 text-white text-sm rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none whitespace-nowrap z-50 shadow-lg">
+                                        {displayNumber}
+                                        <div className="absolute top-full left-1/2 transform -translate-x-1/2 -mt-1">
+                                          <div className="border-4 border-transparent border-t-gray-900"></div>
+                                        </div>
+                                      </div>
+                                    )}
+                                    <div className="text-sm mb-3 font-semibold" style={{ color: fontColor }}>
+                                      Pemenang {slot.winnerIndex}
+                                    </div>
+                                    <div
+                                      style={{
+                                        color: fontColor,
+                                        fontSize: `${parseFloat(fontSizePx) * 0.7}px`,
+                                        fontFamily:
+                                          fontFamily === 'sans'
+                                            ? 'ui-sans-serif, system-ui, sans-serif'
+                                            : fontFamily === 'serif'
+                                            ? 'ui-serif, Georgia, serif'
+                                            : fontFamily === 'mono'
+                                            ? 'ui-monospace, SFMono-Regular, monospace'
+                                            : fontFamily === 'poppins'
+                                            ? "'Poppins', ui-sans-serif, system-ui, sans-serif"
+                                            : fontFamily === 'roboto'
+                                            ? "'Roboto', ui-sans-serif, system-ui, sans-serif"
+                                            : fontFamily === 'nunito'
+                                            ? "'Nunito', ui-sans-serif, system-ui, sans-serif"
+                                            : fontFamily,
+                                      }}
+                                      className="font-bold overflow-hidden text-ellipsis whitespace-nowrap w-full px-2"
+                                    >
+                                      {displayNumber}
+                                    </div>
+                                    {hasWinner && !isAnimating && (
+                                      <div className="mt-4">
+                                        <div className="text-sm font-bold animate-bounce" style={{ color: fontColor }}>
+                                          🎉 SELAMAT! 🎉
+                                        </div>
+                                      </div>
+                                    )}
+                                    {isAnimating && (
+                                      <div className="mt-4">
+                                        <div className="text-sm font-bold animate-pulse" style={{ color: fontColor }}>
+                                          {isCurrentlyRedrawing ? '🔄 Mengundi Ulang...' : '🎲 Mengundi...'}
+                                        </div>
+                                      </div>
+                                    )}
                                   </div>
-                                  {hasWinner && !isAnimating && (
-                                    <div className="mt-4">
-                                      <div className="text-sm font-bold animate-bounce" style={{ color: fontColor }}>
-                                        🎉 SELAMAT! 🎉
-                                      </div>
-                                    </div>
-                                  )}
-                                  {isAnimating && (
-                                    <div className="mt-4">
-                                      <div className="text-sm font-bold animate-pulse" style={{ color: fontColor }}>
-                                        {isCurrentlyRedrawing ? '🔄 Mengundi Ulang...' : '🎲 Mengundi...'}
-                                      </div>
-                                    </div>
-                                  )}
-                                </div>
-                              );
-                            })}
-                            {/* Dummy items to center the last row */}
-                            {Array.from({ length: dummyCount }).map((_, idx) => (
-                              <div key={`dummy-${idx}`} className="invisible" />
-                            ))}
-                          </div>
+                                );
+                              })}
+                              {/* Dummy items to center the last row */}
+                              {Array.from({ length: dummyCount }).map((_, idx) => (
+                                <div key={`dummy-${idx}`} className="invisible" />
+                              ))}
+                            </div>
+                          )}
                         </div>
                       );
                     })}

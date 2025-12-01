@@ -48,6 +48,7 @@ export interface LotteryState {
   doorPrizes: DoorPrize[];
   useDepartmentSort: boolean; // Whether to sort door prize winners by department
   useGroupDistribution: boolean; // Whether to distribute grand prize winners by group
+  viewMode: 'grid' | 'list'; // Display mode for winner list in control panel
 }
 
 interface LotteryContextType {
@@ -85,6 +86,7 @@ interface LotteryContextType {
   stopDoorPrizeDrawing: () => void;
   setUseDepartmentSort: (useDepartmentSort: boolean) => void;
   setUseGroupDistribution: (useGroupDistribution: boolean) => void;
+  setViewMode: (viewMode: 'grid' | 'list') => void;
 }
 
 const LotteryContext = createContext<LotteryContextType | undefined>(undefined);
@@ -107,6 +109,7 @@ const initialState: LotteryState = {
   doorPrizes: [],
   useDepartmentSort: true,
   useGroupDistribution: true,
+  viewMode: 'grid',
 };
 
 export function LotteryProvider({ children }: { children: ReactNode }) {
@@ -165,6 +168,7 @@ export function LotteryProvider({ children }: { children: ReactNode }) {
       backgroundImage: state.backgroundImage,
       mode: state.mode,
       doorPrizes: state.doorPrizes,
+      viewMode: state.viewMode,
     };
     
     localStorage.setItem('drawingState', JSON.stringify(drawingState));
@@ -505,6 +509,10 @@ export function LotteryProvider({ children }: { children: ReactNode }) {
     setState(prev => ({ ...prev, useGroupDistribution }));
   };
 
+  const setViewMode = (viewMode: 'grid' | 'list') => {
+    setState(prev => ({ ...prev, viewMode }));
+  };
+
   const addDoorPrize = (doorPrize: Omit<DoorPrize, 'id' | 'winners'>) => {
     const id = Date.now().toString();
     setState(prev => ({
@@ -749,6 +757,7 @@ export function LotteryProvider({ children }: { children: ReactNode }) {
     stopDoorPrizeDrawing,
     setUseDepartmentSort,
     setUseGroupDistribution,
+    setViewMode,
   };
 
   return (

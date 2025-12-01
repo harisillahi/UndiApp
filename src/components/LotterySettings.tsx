@@ -10,7 +10,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { validateImageFile, fileToBase64 } from '@/lib/utils';
 
 export function LotterySettings() {
-  const { state, setEventName, setParticipantRange, setTheme, setBackgroundImage } = useLottery();
+  const { state, setEventName, setTheme, setBackgroundImage } = useLottery();
   const [imageError, setImageError] = useState<string>('');
   const [isUploading, setIsUploading] = useState(false);
   const [bgAlpha, setBgAlpha] = useState('100');
@@ -88,24 +88,6 @@ export function LotterySettings() {
               onChange={(e) => setEventName(e.target.value)}
               className="w-full"
             />
-          </div>
-
-          {/* Participant Range */}
-          <div className="space-y-2">
-            <Label htmlFor="participantRange" className="text-sm font-medium">
-              Rentang Peserta
-            </Label>
-            <Input
-              id="participantRange"
-              type="text"
-              placeholder="contoh: 100-150 atau 1,5,10,25"
-              value={state.participantRange}
-              onChange={(e) => setParticipantRange(e.target.value)}
-              className="w-full"
-            />
-            <p className="text-xs text-gray-500">
-              Masukkan rentang (contoh: 100-150) atau nomor spesifik (contoh: 1,5,10,25)
-            </p>
           </div>
 
           {/* Theme Toggle */}

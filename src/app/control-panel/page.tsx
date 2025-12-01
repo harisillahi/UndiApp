@@ -94,6 +94,7 @@ function MainContent() {
     stopDoorPrizeDrawing,
     setUseDepartmentSort,
     setUseGroupDistribution,
+    setViewMode,
   } = useLottery();
 
   const [csvError, setCsvError] = useState<string>('');
@@ -645,6 +646,25 @@ Selamat menggunakan UndiApp! 🎉`;
               <Label htmlFor="useGroupDistribution" className="text-sm font-medium cursor-pointer">
                 Distribusi pemenang berdasarkan Group (minimal 1 pemenang per Group)
               </Label>
+            </div>
+            
+            {/* Drawing Window View Mode Toggle */}
+            <div className="flex items-center space-x-3 pb-4 border-b border-gray-200 dark:border-gray-700">
+              <Label className="text-sm font-medium">Tampilan Jendela Undian:</Label>
+              <Button 
+                variant={state.viewMode === 'grid' ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => setViewMode('grid')}
+              >
+                Grid
+              </Button>
+              <Button 
+                variant={state.viewMode === 'list' ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => setViewMode('list')}
+              >
+                List
+              </Button>
             </div>
             
             <div className="flex items-center justify-between">
