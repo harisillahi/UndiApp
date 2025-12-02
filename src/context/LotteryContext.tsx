@@ -81,9 +81,12 @@ interface LotteryContextType {
   setMode: (mode: 'regular' | 'doorprize') => void;
   addDoorPrize: (doorPrize: Omit<DoorPrize, 'id' | 'winners'>) => void;
   updateDoorPrize: (id: string, doorPrize: Partial<DoorPrize>) => void;
+  updateDoorPrizeWinner: (doorPrizeId: string, winnerId: string, updates: Partial<Winner>) => void;
   deleteDoorPrize: (id: string) => void;
   startDoorPrizeDrawing: () => void;
   stopDoorPrizeDrawing: () => void;
+  startDoorPrizeIndividualRedraw: (doorPrizeId: string, winnerId: string) => void;
+  stopDoorPrizeIndividualRedraw: (doorPrizeId: string, winnerId: string, finalNumber: string) => void;
   setUseDepartmentSort: (useDepartmentSort: boolean) => void;
   setUseGroupDistribution: (useGroupDistribution: boolean) => void;
   setViewMode: (viewMode: 'grid' | 'list') => void;
@@ -222,20 +225,47 @@ export function LotteryProvider({ children }: { children: ReactNode }) {
     if (redrawIntervalRef.current) {
       clearInterval(redrawIntervalRef.current);
     }
-    const participants = getParticipantList();
+    
     redrawIntervalRef.current = setInterval(() => {
-      const randomIndex = Math.floor(Math.random() * participants.length);
-      const selected = participants[randomIndex];
-      const newValue = selected 
-        ? (selected.number ? `${selected.number} - ${selected.name}` : selected.name)
-        : '';
-      setState(prev => ({
-        ...prev,
-        drawingNumbers: {
-          ...prev.drawingNumbers,
-          [winnerId]: newValue,
-        },
-      }));
+      setState(prev => {
+        // Get the current winner to determine their group
+        const currentWinner = prev.winners.find(w => w.id === winnerId);
+        let participants = getParticipantList();
+        
+        // If group distribution is enabled and winner has a group, filter by that group
+        if (prev.useGroupDistribution && currentWinner?.participantNumber) {
+          // Extract the participant number/name to find their department
+          const parts = currentWinner.participantNumber.split(' - ');
+          const identifier = parts.length > 1 && parts[0].trim() !== '' ? parts[0] : parts[parts.length - 1];
+          
+          // Find the original participant to get their department
+          const originalParticipant = prev.participants.find((p: Participant) => 
+            (p.number && p.number === identifier) || p.name === identifier || p.name === parts[parts.length - 1]
+          );
+          
+          if (originalParticipant?.department) {
+            // Filter to only participants from the same department
+            participants = participants.filter((p: Participant) => 
+              p.department === originalParticipant.department
+            );
+            console.log(`Redrawing from group: ${originalParticipant.department}, available: ${participants.length}`);
+          }
+        }
+        
+        const randomIndex = Math.floor(Math.random() * participants.length);
+        const selected = participants[randomIndex];
+        const newValue = selected 
+          ? (selected.number ? `${selected.number} - ${selected.name}` : selected.name)
+          : '';
+        
+        return {
+          ...prev,
+          drawingNumbers: {
+            ...prev.drawingNumbers,
+            [winnerId]: newValue,
+          },
+        };
+      });
     }, 100);
   };
 
@@ -470,19 +500,52 @@ export function LotteryProvider({ children }: { children: ReactNode }) {
       redrawIntervalRef.current = null;
     }
 
-    setState(prev => ({
-      ...prev,
-      currentRedrawWinnerId: null,
-      drawingNumbers: {
-        ...prev.drawingNumbers,
-        [winnerId]: undefined, // Clear the animated number
-      },
-      winners: prev.winners.map(winner => 
-        winner.id === winnerId 
-          ? { ...winner, participantNumber: finalNumber, confirmed: false }
-          : winner
-      ),
-    }));
+    setState(prev => {
+      // Validate that the new winner is from the same group if group distribution is enabled
+      if (prev.useGroupDistribution && finalNumber) {
+        const currentWinner = prev.winners.find(w => w.id === winnerId);
+        
+        if (currentWinner?.participantNumber) {
+          // Get the original winner's department
+          const parts = currentWinner.participantNumber.split(' - ');
+          const identifier = parts.length > 1 && parts[0].trim() !== '' ? parts[0] : parts[parts.length - 1];
+          
+          const originalParticipant = prev.participants.find((p: Participant) => 
+            (p.number && p.number === identifier) || p.name === identifier || p.name === parts[parts.length - 1]
+          );
+          
+          // Get the new winner's department
+          const newParts = finalNumber.split(' - ');
+          const newIdentifier = newParts.length > 1 && newParts[0].trim() !== '' ? newParts[0] : newParts[newParts.length - 1];
+          
+          const newParticipant = prev.participants.find((p: Participant) => 
+            (p.number && p.number === newIdentifier) || p.name === newIdentifier || p.name === newParts[newParts.length - 1]
+          );
+          
+          if (originalParticipant?.department && newParticipant?.department) {
+            if (originalParticipant.department !== newParticipant.department) {
+              console.warn(`Group mismatch! Original: ${originalParticipant.department}, New: ${newParticipant.department}`);
+            } else {
+              console.log(`✓ Redraw successful - both from group: ${originalParticipant.department}`);
+            }
+          }
+        }
+      }
+      
+      return {
+        ...prev,
+        currentRedrawWinnerId: null,
+        drawingNumbers: {
+          ...prev.drawingNumbers,
+          [winnerId]: undefined, // Clear the animated number
+        },
+        winners: prev.winners.map(winner => 
+          winner.id === winnerId 
+            ? { ...winner, participantNumber: finalNumber, confirmed: false }
+            : winner
+        ),
+      };
+    });
   };
 
   // Cleanup intervals on unmount
@@ -527,6 +590,22 @@ export function LotteryProvider({ children }: { children: ReactNode }) {
       ...prev,
       doorPrizes: prev.doorPrizes.map(dp => 
         dp.id === id ? { ...dp, ...doorPrize } : dp
+      ),
+    }));
+  };
+
+  const updateDoorPrizeWinner = (doorPrizeId: string, winnerId: string, updates: Partial<Winner>) => {
+    setState(prev => ({
+      ...prev,
+      doorPrizes: prev.doorPrizes.map(dp => 
+        dp.id === doorPrizeId
+          ? {
+              ...dp,
+              winners: dp.winners.map(w => 
+                w.id === winnerId ? { ...w, ...updates } : w
+              )
+            }
+          : dp
       ),
     }));
   };
@@ -623,9 +702,27 @@ export function LotteryProvider({ children }: { children: ReactNode }) {
       const updatedDoorPrizes = prev.doorPrizes.map((doorPrize) => {
         const participants = doorPrize.participants;
         
+        // Exclude confirmed winners from this door prize
+        const confirmedWinnerIds = new Set(
+          doorPrize.winners
+            .filter(w => w.confirmed && w.participantNumber)
+            .map(w => {
+              const parts = w.participantNumber.split(' - ');
+              return parts[0] && parts[0].trim() !== '' ? parts[0] : parts[1] || w.participantNumber;
+            })
+        );
+        
         // Separate targeted and non-targeted participants
-        const targetedParticipants = participants.filter(p => p.targetDP === true && !globalUsedParticipants.has(getParticipantId(p)));
-        const nonTargetedParticipants = participants.filter(p => !p.targetDP && !globalUsedParticipants.has(getParticipantId(p)));
+        const targetedParticipants = participants.filter(p => 
+          p.targetDP === true && 
+          !globalUsedParticipants.has(getParticipantId(p)) &&
+          !confirmedWinnerIds.has(getParticipantId(p))
+        );
+        const nonTargetedParticipants = participants.filter(p => 
+          !p.targetDP && 
+          !globalUsedParticipants.has(getParticipantId(p)) &&
+          !confirmedWinnerIds.has(getParticipantId(p))
+        );
         
         const usedParticipants = new Set<string>();
         
@@ -732,6 +829,145 @@ export function LotteryProvider({ children }: { children: ReactNode }) {
     });
   };
 
+  const startDoorPrizeIndividualRedraw = (doorPrizeId: string, winnerId: string) => {
+    console.log('Starting Door Prize redraw for winner:', winnerId, 'in door prize:', doorPrizeId);
+    
+    setState(prev => ({
+      ...prev,
+      currentRedrawWinnerId: winnerId,
+    }));
+
+    // Start individual animation for door prize winner
+    if (redrawIntervalRef.current) {
+      clearInterval(redrawIntervalRef.current);
+    }
+
+    redrawIntervalRef.current = setInterval(() => {
+      setState(prev => {
+        const doorPrize = prev.doorPrizes.find(dp => dp.id === doorPrizeId);
+        if (!doorPrize) return prev;
+
+        // Get the current winner to determine their group
+        const currentWinner = doorPrize.winners.find(w => w.id === winnerId);
+        let participants = doorPrize.participants;
+
+        // Exclude all current winners from this door prize (except confirmed ones which should never be redrawn)
+        const usedNumbers = new Set<string>();
+        doorPrize.winners.forEach(w => {
+          if (w.id !== winnerId && w.participantNumber) {
+            const parts = w.participantNumber.split(' - ');
+            const identifier = parts.length > 1 && parts[0].trim() !== '' ? parts[0] : parts[parts.length - 1];
+            usedNumbers.add(identifier);
+          }
+        });
+
+        // Filter out already used participants
+        participants = participants.filter((p: Participant) => {
+          const participantId = p.number && p.number.trim() !== '' ? p.number : p.name;
+          return !usedNumbers.has(participantId) && !usedNumbers.has(p.name);
+        });
+
+        // If department sort is enabled and winner has a group, filter by that group
+        if (prev.useDepartmentSort && currentWinner?.participantNumber) {
+          const parts = currentWinner.participantNumber.split(' - ');
+          const identifier = parts.length > 1 && parts[0].trim() !== '' ? parts[0] : parts[parts.length - 1];
+          
+          // Find the original participant to get their department
+          const originalParticipant = doorPrize.participants.find((p: Participant) => 
+            (p.number && p.number === identifier) || p.name === identifier || p.name === parts[parts.length - 1]
+          );
+          
+          if (originalParticipant?.department) {
+            participants = participants.filter((p: Participant) => 
+              p.department === originalParticipant.department
+            );
+            console.log(`Redrawing from group: ${originalParticipant.department}, available: ${participants.length}`);
+          }
+        }
+
+        const randomIndex = Math.floor(Math.random() * participants.length);
+        const selected = participants[randomIndex];
+        const newValue = selected 
+          ? (selected.number ? `${selected.number} - ${selected.name}` : selected.name)
+          : '';
+        
+        return {
+          ...prev,
+          drawingNumbers: {
+            ...prev.drawingNumbers,
+            [winnerId]: newValue,
+          },
+        };
+      });
+    }, 100);
+  };
+
+  const stopDoorPrizeIndividualRedraw = (doorPrizeId: string, winnerId: string, finalNumber: string) => {
+    console.log('Stopping Door Prize redraw for winner:', winnerId, 'with number:', finalNumber);
+    
+    // Clear redraw interval
+    if (redrawIntervalRef.current) {
+      clearInterval(redrawIntervalRef.current);
+      redrawIntervalRef.current = null;
+    }
+
+    setState(prev => {
+      const doorPrize = prev.doorPrizes.find(dp => dp.id === doorPrizeId);
+      
+      // Validate that the new winner is from the same group if department sort is enabled
+      if (prev.useDepartmentSort && finalNumber && doorPrize) {
+        const currentWinner = doorPrize.winners.find(w => w.id === winnerId);
+        
+        if (currentWinner?.participantNumber) {
+          // Get the original winner's department
+          const parts = currentWinner.participantNumber.split(' - ');
+          const identifier = parts.length > 1 && parts[0].trim() !== '' ? parts[0] : parts[parts.length - 1];
+          
+          const originalParticipant = doorPrize.participants.find((p: Participant) => 
+            (p.number && p.number === identifier) || p.name === identifier || p.name === parts[parts.length - 1]
+          );
+          
+          // Get the new winner's department
+          const newParts = finalNumber.split(' - ');
+          const newIdentifier = newParts.length > 1 && newParts[0].trim() !== '' ? newParts[0] : newParts[newParts.length - 1];
+          
+          const newParticipant = doorPrize.participants.find((p: Participant) => 
+            (p.number && p.number === newIdentifier) || p.name === newIdentifier || p.name === newParts[newParts.length - 1]
+          );
+          
+          if (originalParticipant?.department && newParticipant?.department) {
+            if (originalParticipant.department !== newParticipant.department) {
+              console.warn(`Group mismatch! Original: ${originalParticipant.department}, New: ${newParticipant.department}`);
+            } else {
+              console.log(`✓ Redraw successful - both from group: ${originalParticipant.department}`);
+            }
+          }
+        }
+      }
+
+      return {
+        ...prev,
+        currentRedrawWinnerId: null,
+        drawingNumbers: {
+          ...prev.drawingNumbers,
+          [winnerId]: undefined,
+        },
+        doorPrizes: prev.doorPrizes.map(dp => 
+          dp.id === doorPrizeId
+            ? {
+                ...dp,
+                winners: dp.winners.map(w => 
+                  w.id === winnerId
+                    ? { ...w, participantNumber: finalNumber, confirmed: false }
+                    : w
+                ),
+              }
+            : dp
+        ),
+      };
+    });
+  };
+
   const contextValue: LotteryContextType = {
     state,
     setEventName,
@@ -762,9 +998,12 @@ export function LotteryProvider({ children }: { children: ReactNode }) {
     setMode,
     addDoorPrize,
     updateDoorPrize,
+    updateDoorPrizeWinner,
     deleteDoorPrize,
     startDoorPrizeDrawing,
     stopDoorPrizeDrawing,
+    startDoorPrizeIndividualRedraw,
+    stopDoorPrizeIndividualRedraw,
     setUseDepartmentSort,
     setUseGroupDistribution,
     setViewMode,

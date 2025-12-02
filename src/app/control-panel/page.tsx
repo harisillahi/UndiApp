@@ -12,6 +12,8 @@ import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Badge } from '@/components/ui/badge';
 import { parseCSV, validateCSVFile, exportToCSV, type Participant } from '@/lib/utils';
 import { Plus } from 'lucide-react';
 
@@ -89,9 +91,12 @@ function MainContent() {
     setMode,
     addDoorPrize,
     updateDoorPrize,
+    updateDoorPrizeWinner,
     deleteDoorPrize,
     startDoorPrizeDrawing,
     stopDoorPrizeDrawing,
+    startDoorPrizeIndividualRedraw,
+    stopDoorPrizeIndividualRedraw,
     setUseDepartmentSort,
     setUseGroupDistribution,
     setViewMode,
@@ -643,14 +648,115 @@ Selamat menggunakan UndiApp! 🎉`;
                   {state.doorPrizes.map((doorPrize) => (
                     doorPrize.winners.length > 0 && (
                       <div key={doorPrize.id}>
-                        <h4 className="font-semibold text-lg mb-2">{doorPrize.name}</h4>
-                        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2">
-                          {doorPrize.winners.map((winner, idx) => (
-                            <div key={winner.id} className="bg-gray-100 dark:bg-gray-700 p-3 rounded">
-                              <div className="text-sm text-gray-600 dark:text-gray-400">Pemenang {idx + 1}</div>
-                              <div className="font-semibold">{winner.participantNumber}</div>
-                            </div>
-                          ))}
+                        <h4 className="font-semibold text-lg mb-3">{doorPrize.name}</h4>
+                        <div className="overflow-x-auto">
+                          <Table>
+                            <TableHeader>
+                              <TableRow>
+                                <TableHead className="w-[15%]">Nama Hadiah</TableHead>
+                                <TableHead className="w-[30%]">Nomor Pemenang</TableHead>
+                                <TableHead className="w-[15%]">Status</TableHead>
+                                <TableHead className="w-[40%]">Aksi</TableHead>
+                              </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                              {doorPrize.winners.map((winner, idx) => {
+                                // Parse winner data (format: "number - name (group)")
+                                const parts = winner.participantNumber.split(' - ');
+                                let displayNumber = '';
+                                let displayName = '';
+                                let displayGroup = '';
+                                
+                                if (parts.length >= 2) {
+                                  displayNumber = parts[0];
+                                  const namePart = parts[1];
+                                  const groupMatch = namePart.match(/^(.+?)\s*\((.+)\)$/);
+                                  if (groupMatch) {
+                                    displayName = groupMatch[1];
+                                    displayGroup = groupMatch[2];
+                                  } else {
+                                    displayName = namePart;
+                                  }
+                                } else {
+                                  // Fallback if format is different
+                                  displayNumber = winner.participantNumber;
+                                }
+                                
+                                const isRedrawing = state.drawingNumbers[winner.id] !== undefined;
+
+                                return (
+                                  <TableRow 
+                                    key={winner.id} 
+                                    className={isRedrawing ? 'bg-orange-50 border-orange-200' : ''}
+                                  >
+                                    <TableCell className="font-medium">
+                                      {doorPrize.name} #{idx + 1}
+                                      {displayName && <div className="text-sm text-gray-600 dark:text-gray-400">{displayName}</div>}
+                                      {displayGroup && <div className="text-xs text-gray-500 dark:text-gray-400">({displayGroup})</div>}
+                                    </TableCell>
+                                    <TableCell>
+                                      <span 
+                                        className={`font-mono text-lg ${
+                                          isRedrawing ? 'text-red-600 animate-pulse' : 'text-green-600'
+                                        }`}
+                                      >
+                                        {isRedrawing ? state.drawingNumbers[winner.id] : displayNumber}
+                                      </span>
+                                    </TableCell>
+                                    <TableCell>
+                                      {isRedrawing ? (
+                                        <Badge variant="secondary" className="bg-orange-100 text-orange-800 animate-pulse">
+                                          Mengundi ulang...
+                                        </Badge>
+                                      ) : winner.confirmed ? (
+                                        <Badge variant="default" className="bg-green-100 text-green-800">
+                                          Dikonfirmasi
+                                        </Badge>
+                                      ) : (
+                                        <Badge variant="secondary" className="bg-orange-100 text-orange-800">
+                                          Menunggu
+                                        </Badge>
+                                      )}
+                                    </TableCell>
+                                    <TableCell>
+                                      <div className="flex space-x-2">
+                                        <Button 
+                                          variant="outline" 
+                                          size="sm"
+                                          onClick={() => startDoorPrizeIndividualRedraw(doorPrize.id, winner.id)}
+                                          disabled={isRedrawing || winner.confirmed}
+                                        >
+                                          Undi Ulang
+                                        </Button>
+                                        
+                                        <Button 
+                                          variant="default" 
+                                          size="sm"
+                                          onClick={() => updateDoorPrizeWinner(doorPrize.id, winner.id, { confirmed: true })}
+                                          disabled={!winner.participantNumber || winner.confirmed || isRedrawing}
+                                        >
+                                          Konfirmasi
+                                        </Button>
+                                        
+                                        <Button 
+                                          variant="destructive" 
+                                          size="sm"
+                                          onClick={() => {
+                                            const finalValue = state.drawingNumbers[winner.id] || '';
+                                            stopDoorPrizeIndividualRedraw(doorPrize.id, winner.id, finalValue);
+                                          }}
+                                          disabled={!isRedrawing}
+                                          className={isRedrawing ? "animate-pulse" : ""}
+                                        >
+                                          Berhenti
+                                        </Button>
+                                      </div>
+                                    </TableCell>
+                                  </TableRow>
+                                );
+                              })}
+                            </TableBody>
+                          </Table>
                         </div>
                       </div>
                     )
