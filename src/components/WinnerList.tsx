@@ -107,12 +107,6 @@ export function WinnerList({ onStartIndividualRedraw, onStopIndividualRedraw }: 
     }
   };
 
-  const handleClearAllWinners = () => {
-    if (confirm('Apakah Anda yakin ingin menghapus semua pemenang? Tindakan ini tidak dapat dibatalkan.')) {
-      clearWinners();
-    }
-  };
-
   const confirmedWinners = state.winners.filter(w => w.confirmed);
   const pendingWinners = state.winners.filter(w => !w.confirmed);
 
@@ -145,22 +139,13 @@ export function WinnerList({ onStartIndividualRedraw, onStopIndividualRedraw }: 
           Daftar Pemenang
           <div className="flex items-center space-x-2">
             {state.winners.length > 0 && (
-              <>
-                <Button 
-                  variant="outline" 
-                  size="sm"
-                  onClick={handleClearAllWinners}
-                >
-                  Hapus Semua
-                </Button>
-                <Button 
-                  variant="default" 
-                  size="sm"
-                  onClick={handleExportCSV}
-                >
-                  Ekspor CSV
-                </Button>
-              </>
+              <Button 
+                variant="default" 
+                size="sm"
+                onClick={handleExportCSV}
+              >
+                Ekspor CSV
+              </Button>
             )}
           </div>
         </CardTitle>

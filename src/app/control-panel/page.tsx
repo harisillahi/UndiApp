@@ -100,6 +100,8 @@ function MainContent() {
     setUseDepartmentSort,
     setUseGroupDistribution,
     setViewMode,
+    resetSession,
+    clearWinnersKeepConfirmed,
   } = useLottery();
 
   const [csvError, setCsvError] = useState<string>('');
@@ -173,7 +175,7 @@ function MainContent() {
   };
 
   const showInstructions = () => {
-    const instructions = `📋 PANDUAN MENGGUNAKAN UNDIAPP
+    const instructions = `📋 PANDUAN MENGGUNAKAN UNDIAPP v1.2
 
 1️⃣ PERSIAPAN CSV:
    • Kolom WAJIB: name
@@ -202,6 +204,7 @@ function MainContent() {
    • Klik "Buka Tampilan Undian" (jendela baru akan terbuka)
    • Klik "MULAI UNDIAN" → animasi berjalan
    • Klik "BERHENTI" → pemenang final ditampilkan
+   • Klik "KONFIRMASI" pada setiap pemenang untuk menyimpan permanent
 
 4️⃣ MODE DOOR PRIZE:
    • Pilih tab "Mode Door Prize"
@@ -213,18 +216,38 @@ function MainContent() {
    • DISTRIBUSI GROUP: Centang untuk memastikan minimal 1 pemenang per group
    • Klik "MULAI UNDIAN SEMUA DOOR PRIZE" untuk undi semua sekaligus
    • Klik "BERHENTI" untuk finalisasi pemenang
+   • Klik "KONFIRMASI" pada setiap pemenang untuk menyimpan permanent
 
 5️⃣ PRIORITAS UNDIAN (Target → Group → Random):
    • FASE 1 - TARGET: Peserta dengan "target gp=TRUE" atau "target dp=TRUE" dijamin menang
    • FASE 2 - GROUP: Jika distribusi group aktif, minimal 1 pemenang per group
    • FASE 3 - RANDOM: Sisa slot diisi secara acak dari peserta tersisa
    
-6️⃣ FITUR TARGETING:
+6️⃣ FITUR TARGETING & PROTEKSI:
    • target gp = TRUE → Dijamin menang di Grand Prize
    • target dp = TRUE → Dijamin menang di Door Prize
-   • Pemenang Grand Prize otomatis tidak bisa menang Door Prize (begitu juga sebaliknya)
+   • Pemenang yang SUDAH DIKONFIRMASI tidak bisa menang lagi di mode apapun
+   • Proteksi tetap aktif MESKIPUN hadiah dihapus
+   • Konfirmasi = Permanent exclusion dari undian selanjutnya
 
-7️⃣ PENGATURAN TAMPILAN:
+7️⃣ MANAJEMEN SESSION:
+   🔄 RESET SESSION (Tombol Merah):
+     • Hapus SEMUA data pemenang
+     • Hapus daftar exclusion (pemenang terkonfirmasi)
+     • Semua peserta bisa diundi lagi
+     • Gunakan untuk: Event baru / Upload CSV baru
+   
+   💾 SAVE & CLEAR (Tombol Biru):
+     • Simpan pemenang terkonfirmasi ke exclusion list
+     • Hapus pemenang saat ini dari tampilan
+     • Pemenang terkonfirmasi TETAP tidak bisa menang lagi
+     • Gunakan untuk: Tambah hadiah baru / Lanjut acara
+   
+   ⚠️ PERBEDAAN:
+     • Reset = Fresh start (semua bisa menang lagi)
+     • Save & Clear = Lanjut acara (confirmed winners protected)
+
+8️⃣ PENGATURAN TAMPILAN:
    • Scroll ke bawah untuk atur:
      - Warna font (nomor, event, hadiah, total)
      - Ukuran font (dalam pixel)
@@ -233,8 +256,28 @@ function MainContent() {
    • Upload gambar background untuk jendela undian
    • Pengaturan langsung terlihat di jendela undian
 
+9️⃣ WORKFLOW REKOMENDASI:
+
+   SKENARIO A - Event dengan Banyak Hadiah:
+   1. Upload CSV peserta
+   2. Buat Hadiah 1 → Undi → KONFIRMASI pemenang
+   3. Klik "💾 Save & Clear"
+   4. Hapus Hadiah 1 (optional)
+   5. Buat Hadiah 2 → Undi (pemenang lama TIDAK muncul) ✓
+   6. KONFIRMASI pemenang Hadiah 2
+   7. Ulangi step 3-6 untuk hadiah selanjutnya
+   
+   SKENARIO B - Event Baru / CSV Baru:
+   1. Klik "🔄 Reset Session"
+   2. Upload CSV baru
+   3. Mulai dari awal
+
 ✅ TIPS PENTING:
    • Pastikan browser TIDAK memblokir popup
+   • SELALU klik KONFIRMASI setelah finalisasi pemenang
+   • Pemenang yang sudah dikonfirmasi TIDAK bisa diundi lagi
+   • Gunakan "💾 Save & Clear" untuk tambah hadiah baru
+   • Gunakan "🔄 Reset Session" untuk event baru
    • Satu CSV bisa dipakai untuk semua mode undian
    • Gunakan semicolon (;) atau comma (,) sebagai pemisah
    • Nama kolom case-insensitive (Group = group = GROUP)
@@ -243,10 +286,10 @@ function MainContent() {
 📊 FORMAT CSV LENGKAP:
 
 OPSI 1 - Hanya nama (tanpa nomor):
-name;group;sub-group
-Alpha;Marketing;Team A
-Bravo;Finance;Team B
-Charlie;IT;Team C
+name;group;sub-group;target gp;target dp
+Alpha;Marketing;Team A;TRUE;
+Bravo;Finance;Team B;;TRUE
+Charlie;IT;Team C;;
 
 OPSI 2 - Dengan nomor custom:
 number;name;group;sub-group;target gp;target dp
@@ -254,7 +297,15 @@ number;name;group;sub-group;target gp;target dp
 102;Bravo;Finance;Team B;;TRUE
 103;Charlie;IT;Team C;;
 
-Selamat menggunakan UndiApp! 🎉`;
+🔒 SISTEM PROTEKSI PEMENANG:
+   • Setiap pemenang yang dikonfirmasi disimpan ke PERMANENT EXCLUSION LIST
+   • List ini tersimpan di localStorage browser
+   • Tetap aktif meskipun hadiah dihapus
+   • Hanya bisa dihapus dengan "🔄 Reset Session"
+   • Pemenang Grand Prize tidak bisa menang Door Prize (dan sebaliknya)
+   • Proteksi berlaku lintas mode (GP ↔ DP)
+
+Selamat menggunakan UndiApp v1.2! 🎉`;
     
     alert(instructions);
   };
@@ -286,15 +337,19 @@ Selamat menggunakan UndiApp! 🎉`;
     }
   };
 
-  // Get available participants excluding already-drawn winners across ALL prizes
+  // Get available participants excluding CONFIRMED winners across ALL modes
   const getParticipantList = (): Participant[] => {
     const allParticipants = state.participants || [];
-    // Extract participant numbers from all winners (format: "number - name")
-    const assigned = state.winners
-      .map(w => w.participantNumber)
-      .filter(p => p)
-      .map(p => p.split(' - ')[0]); // Extract just the number part
-    return allParticipants.filter(p => !assigned.includes(p.number));
+    
+    // Use the permanent exclusion list from state (survives prize deletion)
+    // This list is automatically populated when winners are confirmed in any mode
+    const excludedParticipants = state.confirmedWinnersExclusionList;
+    
+    // Filter out permanently excluded participants
+    return allParticipants.filter(p => {
+      const participantId = p.number && p.number.trim() !== '' ? p.number : p.name;
+      return !excludedParticipants.has(participantId) && !excludedParticipants.has(p.name);
+    });
   };
 
   const handleStartDrawing = () => {
@@ -323,21 +378,9 @@ Selamat menggunakan UndiApp! 🎉`;
 
   const handleStopDrawing = () => {
     if (typeof window === 'undefined') return;
-    const participants = getParticipantList();
     
-    // Get all door prize winners to exclude them from grand prize drawing
-    const doorPrizeWinnerNumbers = new Set<string>();
-    state.doorPrizes.forEach(doorPrize => {
-      doorPrize.winners.forEach(winner => {
-        if (winner.participantNumber) {
-          const participantNum = winner.participantNumber.split(' - ')[0];
-          doorPrizeWinnerNumbers.add(participantNum);
-        }
-      });
-    });
-    
-    // Filter out door prize winners from available participants
-    const availableParticipants = participants.filter(p => !doorPrizeWinnerNumbers.has(p.number));
+    // Get available participants (already excludes ALL confirmed winners from both modes)
+    const availableParticipants = getParticipantList();
     
     // Separate targeted and non-targeted participants
     const targetedParticipants = availableParticipants.filter(p => p.targetGP === true);
@@ -541,7 +584,7 @@ Selamat menggunakan UndiApp! 🎉`;
                 size="lg"
                 variant="outline"
               >
-                📖 Panduan
+                Panduan
               </Button>
               <Button 
                 onClick={openDrawingWindow}
@@ -556,20 +599,55 @@ Selamat menggunakan UndiApp! 🎉`;
 
         {/* Mode Toggle */}
         <div className="mb-6 bg-white dark:bg-gray-800 rounded-lg shadow-lg p-4">
-          <div className="flex items-center gap-4">
-            <span className="font-semibold text-gray-900 dark:text-white">Mode:</span>
-            <Button
-              variant={state.mode === 'regular' ? 'default' : 'outline'}
-              onClick={() => setMode('regular')}
-            >
-              Mode Grand Prize
-            </Button>
-            <Button
-              variant={state.mode === 'doorprize' ? 'default' : 'outline'}
-              onClick={() => setMode('doorprize')}
-            >
-              Mode Door Prize
-            </Button>
+          <div className="flex items-center justify-between gap-4">
+            <div className="flex items-center gap-4">
+              <span className="font-semibold text-gray-900 dark:text-white">Mode:</span>
+              <Button
+                variant={state.mode === 'regular' ? 'default' : 'outline'}
+                onClick={() => setMode('regular')}
+              >
+                Mode Grand Prize
+              </Button>
+              <Button
+                variant={state.mode === 'doorprize' ? 'default' : 'outline'}
+                onClick={() => setMode('doorprize')}
+              >
+                Mode Door Prize
+              </Button>
+            </div>
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  if (confirm('Menghapus semua pemenang yang sudah terkonfirmasi. Mulai ulang sesi undian dengan CSV baru. Lanjutkan?')) {
+                    resetSession();
+                  }
+                }}
+                className="text-red-600 hover:text-red-700 hover:bg-red-50"
+              >
+                Reset Session
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  if (confirm(
+                    'Pemenang yang sudah dikonfirmasi akan DISIMPAN dan tidak akan diundi lagi.\n\n' +
+                    'Gunakan tombol ini jika Anda ingin:\n' +
+                    '• Hapus hadiah saat ini dan tambah hadiah baru\n' +
+                    '• Pemenang terkonfirmasi tidak akan diundi lagi\n' +
+                    '• Lanjutkan acara dengan hadiah tambahan\n\n' +
+                    'Lanjutkan?'
+                  )) {
+                    clearWinnersKeepConfirmed();
+                  }
+                }}
+                className="text-blue-600 hover:text-blue-700 hover:bg-blue-50"
+              >
+                Save & Clear
+              </Button>
+            </div>
           </div>
         </div>
 

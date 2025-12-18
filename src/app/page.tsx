@@ -1,7 +1,7 @@
 import { redirect } from 'next/navigation';
 
 // Maintenance configuration
-const MAINTENANCE_MODE = true; // Set to false to disable maintenance
+const MAINTENANCE_MODE = false; // Set to false to disable maintenance
 
 export default async function Home({
   searchParams,

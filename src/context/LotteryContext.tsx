@@ -49,6 +49,7 @@ export interface LotteryState {
   useDepartmentSort: boolean; // Whether to sort door prize winners by department
   useGroupDistribution: boolean; // Whether to distribute grand prize winners by group
   viewMode: 'grid' | 'list'; // Display mode for winner list in control panel
+  confirmedWinnersExclusionList: Set<string>; // Permanent list of confirmed winner IDs that can never be drawn again
 }
 
 interface LotteryContextType {
@@ -65,6 +66,8 @@ interface LotteryContextType {
   deleteWinner: (id: string) => void;
   setIsDrawing: (drawing: boolean) => void;
   clearWinners: () => void;
+  resetSession: () => void; // Clear everything including exclusion list
+  clearWinnersKeepConfirmed: () => void; // Clear winners but keep exclusion list
   redrawWinner: (winnerId: string) => void;
   startRedraw: (winnerId: string) => void;
   stopRedraw: () => void;
@@ -113,6 +116,7 @@ const initialState: LotteryState = {
   useDepartmentSort: true,
   useGroupDistribution: true,
   viewMode: 'grid',
+  confirmedWinnersExclusionList: new Set<string>(),
 };
 
 export function LotteryProvider({ children }: { children: ReactNode }) {
@@ -146,6 +150,7 @@ export function LotteryProvider({ children }: { children: ReactNode }) {
           isDrawing: false,
           isGlobalDrawing: false,
           drawingNumbers: {},
+          confirmedWinnersExclusionList: new Set(parsedState.confirmedWinnersExclusionList || []),
         });
       } catch (error) {
         console.error('Error loading saved state:', error);
@@ -157,7 +162,13 @@ export function LotteryProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (typeof window === 'undefined' || !isHydrated) return;
     
-    localStorage.setItem('lotteryState', JSON.stringify(state));
+    // Convert Set to Array for JSON serialization
+    const stateToSave = {
+      ...state,
+      confirmedWinnersExclusionList: Array.from(state.confirmedWinnersExclusionList),
+    };
+    
+    localStorage.setItem('lotteryState', JSON.stringify(stateToSave));
     
     // Broadcast drawing state to display window
     const drawingState = {
@@ -185,14 +196,20 @@ export function LotteryProvider({ children }: { children: ReactNode }) {
     }));
   }, [state, isHydrated]);
 
-  // Helper function to get participant list based on CSV, excluding already drawn winners
+  // Helper function to get participant list based on CSV, excluding CONFIRMED winners from ALL modes
   const getParticipantList = (): Participant[] => {
     // Get all participants from CSV
     const allParticipants = state.participants || [];
     
-    // Exclude all participantNumbers already assigned to winners (confirmed or not)
-    const assigned = state.winners.map(w => w.participantNumber).filter(p => p);
-    return allParticipants.filter(p => !assigned.includes(p.number));
+    // Use the permanent exclusion list (survives prize deletion)
+    // This list is populated whenever a winner is confirmed
+    const excludedParticipants = state.confirmedWinnersExclusionList;
+    
+    // Filter out permanently excluded participants
+    return allParticipants.filter(p => {
+      const participantId = p.number && p.number.trim() !== '' ? p.number : p.name;
+      return !excludedParticipants.has(participantId) && !excludedParticipants.has(p.name);
+    });
   };
 
   // Helper function to start drawing animation
@@ -231,6 +248,22 @@ export function LotteryProvider({ children }: { children: ReactNode }) {
         // Get the current winner to determine their group
         const currentWinner = prev.winners.find(w => w.id === winnerId);
         let participants = getParticipantList();
+        
+        // Also exclude OTHER CONFIRMED winners from grand prize (not the one being redrawn)
+        const confirmedWinnerNumbers = new Set<string>();
+        prev.winners
+          .filter(w => w.id !== winnerId && w.confirmed && w.participantNumber)
+          .forEach(w => {
+            const parts = w.participantNumber.split(' - ');
+            const identifier = parts.length > 1 && parts[0].trim() !== '' ? parts[0] : parts[parts.length - 1];
+            confirmedWinnerNumbers.add(identifier);
+          });
+        
+        // Filter out confirmed winners
+        participants = participants.filter((p: Participant) => {
+          const participantId = p.number && p.number.trim() !== '' ? p.number : p.name;
+          return !confirmedWinnerNumbers.has(participantId) && !confirmedWinnerNumbers.has(p.name);
+        });
         
         // If group distribution is enabled and winner has a group, filter by that group
         if (prev.useGroupDistribution && currentWinner?.participantNumber) {
@@ -302,11 +335,29 @@ export function LotteryProvider({ children }: { children: ReactNode }) {
   };
 
   const deletePrize = (id: string) => {
-    setState(prev => ({
-      ...prev,
-      prizes: prev.prizes.filter(prize => prize.id !== id),
-      winners: prev.winners.filter(winner => winner.prizeId !== id),
-    }));
+    setState(prev => {
+      // Before deleting, add confirmed winners to the permanent exclusion list
+      const newExclusionList = new Set(prev.confirmedWinnersExclusionList);
+      
+      prev.winners
+        .filter(w => w.prizeId === id && w.confirmed && w.participantNumber)
+        .forEach(winner => {
+          const parts = winner.participantNumber.split(' - ');
+          const identifier = parts.length > 1 && parts[0].trim() !== '' ? parts[0] : parts[parts.length - 1];
+          newExclusionList.add(identifier);
+          // Also add the name as backup
+          if (parts.length > 1) {
+            newExclusionList.add(parts[parts.length - 1]);
+          }
+        });
+      
+      return {
+        ...prev,
+        prizes: prev.prizes.filter(prize => prize.id !== id),
+        winners: prev.winners.filter(winner => winner.prizeId !== id),
+        confirmedWinnersExclusionList: newExclusionList,
+      };
+    });
   };
 
   const addWinner = (winner: Omit<Winner, 'id'>) => {
@@ -318,12 +369,31 @@ export function LotteryProvider({ children }: { children: ReactNode }) {
   };
 
   const updateWinner = (id: string, updatedWinner: Partial<Winner>) => {
-    setState(prev => ({
-      ...prev,
-      winners: prev.winners.map(winner => 
-        winner.id === id ? { ...winner, ...updatedWinner } : winner
-      ),
-    }));
+    setState(prev => {
+      const newExclusionList = new Set(prev.confirmedWinnersExclusionList);
+      
+      // If confirming a winner, add to permanent exclusion list
+      if (updatedWinner.confirmed === true) {
+        const winner = prev.winners.find(w => w.id === id);
+        if (winner?.participantNumber) {
+          const parts = winner.participantNumber.split(' - ');
+          const identifier = parts.length > 1 && parts[0].trim() !== '' ? parts[0] : parts[parts.length - 1];
+          newExclusionList.add(identifier);
+          // Also add the name as backup
+          if (parts.length > 1) {
+            newExclusionList.add(parts[parts.length - 1]);
+          }
+        }
+      }
+      
+      return {
+        ...prev,
+        winners: prev.winners.map(winner => 
+          winner.id === id ? { ...winner, ...updatedWinner } : winner
+        ),
+        confirmedWinnersExclusionList: newExclusionList,
+      };
+    });
   };
 
   const deleteWinner = (id: string) => {
@@ -348,6 +418,13 @@ export function LotteryProvider({ children }: { children: ReactNode }) {
       redrawIntervalRef.current = null;
     }
 
+    // Ask user if they want to clear the exclusion list too
+    const clearExclusions = confirm(
+      'Do you also want to clear the list of confirmed winners? ' +
+      'If you select "OK", previously confirmed winners can be drawn again. ' +
+      'If you select "Cancel", they will remain excluded from future draws.'
+    );
+
     setState(prev => ({ 
       ...prev, 
       winners: [],
@@ -355,6 +432,53 @@ export function LotteryProvider({ children }: { children: ReactNode }) {
       selectedPrizeIds: [],
       isGlobalDrawing: false,
       currentRedrawWinnerId: null,
+      confirmedWinnersExclusionList: clearExclusions ? new Set<string>() : prev.confirmedWinnersExclusionList,
+    }));
+  };
+
+  const resetSession = () => {
+    // Clear all intervals
+    if (drawingIntervalRef.current) {
+      clearInterval(drawingIntervalRef.current);
+      drawingIntervalRef.current = null;
+    }
+    if (redrawIntervalRef.current) {
+      clearInterval(redrawIntervalRef.current);
+      redrawIntervalRef.current = null;
+    }
+
+    // Clear EVERYTHING including exclusion list - fresh start
+    setState(prev => ({ 
+      ...prev, 
+      winners: [],
+      drawingNumbers: {},
+      selectedPrizeIds: [],
+      isGlobalDrawing: false,
+      currentRedrawWinnerId: null,
+      confirmedWinnersExclusionList: new Set<string>(), // Clear exclusion list
+    }));
+  };
+
+  const clearWinnersKeepConfirmed = () => {
+    // Clear all intervals
+    if (drawingIntervalRef.current) {
+      clearInterval(drawingIntervalRef.current);
+      drawingIntervalRef.current = null;
+    }
+    if (redrawIntervalRef.current) {
+      clearInterval(redrawIntervalRef.current);
+      redrawIntervalRef.current = null;
+    }
+
+    // Clear winners but KEEP exclusion list
+    setState(prev => ({ 
+      ...prev, 
+      winners: [],
+      drawingNumbers: {},
+      selectedPrizeIds: [],
+      isGlobalDrawing: false,
+      currentRedrawWinnerId: null,
+      // Keep confirmedWinnersExclusionList unchanged
     }));
   };
 
@@ -595,26 +719,67 @@ export function LotteryProvider({ children }: { children: ReactNode }) {
   };
 
   const updateDoorPrizeWinner = (doorPrizeId: string, winnerId: string, updates: Partial<Winner>) => {
-    setState(prev => ({
-      ...prev,
-      doorPrizes: prev.doorPrizes.map(dp => 
-        dp.id === doorPrizeId
-          ? {
-              ...dp,
-              winners: dp.winners.map(w => 
-                w.id === winnerId ? { ...w, ...updates } : w
-              )
-            }
-          : dp
-      ),
-    }));
+    setState(prev => {
+      const newExclusionList = new Set(prev.confirmedWinnersExclusionList);
+      
+      // If confirming a door prize winner, add to permanent exclusion list
+      if (updates.confirmed === true) {
+        const doorPrize = prev.doorPrizes.find(dp => dp.id === doorPrizeId);
+        const winner = doorPrize?.winners.find(w => w.id === winnerId);
+        if (winner?.participantNumber) {
+          const parts = winner.participantNumber.split(' - ');
+          const identifier = parts.length > 1 && parts[0].trim() !== '' ? parts[0] : parts[parts.length - 1];
+          newExclusionList.add(identifier);
+          // Also add the name as backup
+          if (parts.length > 1) {
+            newExclusionList.add(parts[parts.length - 1]);
+          }
+        }
+      }
+      
+      return {
+        ...prev,
+        doorPrizes: prev.doorPrizes.map(dp => 
+          dp.id === doorPrizeId
+            ? {
+                ...dp,
+                winners: dp.winners.map(w => 
+                  w.id === winnerId ? { ...w, ...updates } : w
+                )
+              }
+            : dp
+        ),
+        confirmedWinnersExclusionList: newExclusionList,
+      };
+    });
   };
 
   const deleteDoorPrize = (id: string) => {
-    setState(prev => ({
-      ...prev,
-      doorPrizes: prev.doorPrizes.filter(dp => dp.id !== id),
-    }));
+    setState(prev => {
+      // Before deleting, add confirmed door prize winners to the permanent exclusion list
+      const newExclusionList = new Set(prev.confirmedWinnersExclusionList);
+      
+      const doorPrize = prev.doorPrizes.find(dp => dp.id === id);
+      if (doorPrize) {
+        doorPrize.winners
+          .filter(w => w.confirmed && w.participantNumber)
+          .forEach(winner => {
+            const parts = winner.participantNumber.split(' - ');
+            const identifier = parts.length > 1 && parts[0].trim() !== '' ? parts[0] : parts[parts.length - 1];
+            newExclusionList.add(identifier);
+            // Also add the name as backup
+            if (parts.length > 1) {
+              newExclusionList.add(parts[parts.length - 1]);
+            }
+          });
+      }
+      
+      return {
+        ...prev,
+        doorPrizes: prev.doorPrizes.filter(dp => dp.id !== id),
+        confirmedWinnersExclusionList: newExclusionList,
+      };
+    });
   };
 
   const startDoorPrizeDrawing = () => {
@@ -688,16 +853,8 @@ export function LotteryProvider({ children }: { children: ReactNode }) {
     // Finalize winners for each door prize
     setState(prev => {
       // Track used participants globally across ALL prize modes to prevent duplicates
-      const globalUsedParticipants = new Set<string>();
-      
-      // Add grand prize winners to global tracking
-      prev.winners.forEach(winner => {
-        if (winner.participantNumber) {
-          const parts = winner.participantNumber.split(' - ');
-          const participantId = parts[0] && parts[0].trim() !== '' ? parts[0] : parts[1] || winner.participantNumber;
-          globalUsedParticipants.add(participantId);
-        }
-      });
+      // Use the PERMANENT exclusion list to ensure confirmed winners (even if deleted) can't be drawn
+      const globalUsedParticipants = new Set(prev.confirmedWinnersExclusionList);
       
       const updatedDoorPrizes = prev.doorPrizes.map((doorPrize) => {
         const participants = doorPrize.participants;
@@ -851,17 +1008,26 @@ export function LotteryProvider({ children }: { children: ReactNode }) {
         const currentWinner = doorPrize.winners.find(w => w.id === winnerId);
         let participants = doorPrize.participants;
 
-        // Exclude all current winners from this door prize (except confirmed ones which should never be redrawn)
+        // Exclude CONFIRMED winners from this door prize (not all winners)
         const usedNumbers = new Set<string>();
-        doorPrize.winners.forEach(w => {
-          if (w.id !== winnerId && w.participantNumber) {
+        doorPrize.winners
+          .filter(w => w.id !== winnerId && w.confirmed && w.participantNumber) // Only exclude confirmed winners, not the one being redrawn
+          .forEach(w => {
             const parts = w.participantNumber.split(' - ');
             const identifier = parts.length > 1 && parts[0].trim() !== '' ? parts[0] : parts[parts.length - 1];
             usedNumbers.add(identifier);
-          }
-        });
+          });
+        
+        // Also exclude confirmed grand prize winners
+        prev.winners
+          .filter(w => w.confirmed && w.participantNumber)
+          .forEach(w => {
+            const parts = w.participantNumber.split(' - ');
+            const identifier = parts.length > 1 && parts[0].trim() !== '' ? parts[0] : parts[parts.length - 1];
+            usedNumbers.add(identifier);
+          });
 
-        // Filter out already used participants
+        // Filter out already confirmed winners
         participants = participants.filter((p: Participant) => {
           const participantId = p.number && p.number.trim() !== '' ? p.number : p.name;
           return !usedNumbers.has(participantId) && !usedNumbers.has(p.name);
@@ -982,6 +1148,8 @@ export function LotteryProvider({ children }: { children: ReactNode }) {
     deleteWinner,
     setIsDrawing,
     clearWinners,
+    resetSession,
+    clearWinnersKeepConfirmed,
     redrawWinner,
     startRedraw,
     stopRedraw,
