@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { parseCSV, validateCSVFile, validateImageFile, fileToBase64, type Participant } from '@/lib/utils';
+import { parseCSV, validateCSVFile, validateImageFile, fileToBase64, uploadImageToImgBB, type Participant } from '@/lib/utils';
 import { Trash2 } from 'lucide-react';
 
 interface DoorPrizeInputProps {
@@ -24,6 +24,7 @@ export function DoorPrizeInput({ doorPrize, onUpdate, onDelete, index }: DoorPri
   const [isUploadingCsv, setIsUploadingCsv] = useState(false);
   const [isUploadingImage, setIsUploadingImage] = useState(false);
   const [useControlPanelCsv, setUseControlPanelCsv] = useState(false);
+  const [useImgBB, setUseImgBB] = useState(false);
 
   const handleUseControlPanelCsv = () => {
     if (state.participants.length === 0) {
@@ -79,8 +80,17 @@ export function DoorPrizeInput({ doorPrize, onUpdate, onDelete, index }: DoorPri
         throw new Error(validation.error);
       }
 
-      const base64 = await fileToBase64(file);
-      onUpdate(doorPrize.id, { image: base64 });
+      let imageData: string;
+      
+      if (useImgBB) {
+        // Upload to ImgBB and get URL
+        imageData = await uploadImageToImgBB(file);
+      } else {
+        // Direct upload to localStorage as base64
+        imageData = await fileToBase64(file);
+      }
+      
+      onUpdate(doorPrize.id, { image: imageData });
     } catch (error) {
       setImageError(error instanceof Error ? error.message : 'Kesalahan saat mengunggah gambar');
     } finally {
@@ -174,10 +184,22 @@ export function DoorPrizeInput({ doorPrize, onUpdate, onDelete, index }: DoorPri
         {/* Image Upload */}
         <div className="space-y-2">
           <Label htmlFor={`image-${doorPrize.id}`}>Gambar Hadiah (Opsional)</Label>
+          <div className="flex items-center gap-2 mb-2">
+            <input
+              type="checkbox"
+              id={`useImgBB-${doorPrize.id}`}
+              checked={useImgBB}
+              onChange={(e) => setUseImgBB(e.target.checked)}
+              className="h-4 w-4"
+            />
+            <Label htmlFor={`useImgBB-${doorPrize.id}`} className="text-sm font-normal cursor-pointer">
+              Upload ke ImgBB (cloud hosting, tidak ada batas)
+            </Label>
+          </div>
           <Input
             id={`image-${doorPrize.id}`}
             type="file"
-            accept="image/png,image/jpeg,image/jpg"
+            accept="image/png,image/jpeg,image/jpg,image/webp"
             onChange={handleImageUpload}
             disabled={isUploadingImage}
           />

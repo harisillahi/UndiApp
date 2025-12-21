@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { validateImageFile, fileToBase64 } from '@/lib/utils';
+import { validateImageFile, fileToBase64, uploadImageToImgBB } from '@/lib/utils';
 
 export function LotterySettings() {
   const { state, setEventName, setTheme, setBackgroundImage } = useLottery();
@@ -23,6 +23,7 @@ export function LotterySettings() {
   const [totalWinnerFontColor, setTotalWinnerFontColor] = useState('#1e293b');
   const [totalWinnerFontSize, setTotalWinnerFontSize] = useState('24');
   const [fontFamily, setFontFamily] = useState('sans');
+  const [useImgBB, setUseImgBB] = useState(false);
 
   // Load all settings from localStorage on mount
   useEffect(() => {
@@ -53,10 +54,19 @@ export function LotterySettings() {
         throw new Error(validation.error);
       }
 
-      const base64 = await fileToBase64(file);
-      setBackgroundImage(base64);
-      localStorage.setItem('drawingBgImage', base64);
-      window.dispatchEvent(new StorageEvent('storage', { key: 'drawingBgImage', newValue: base64 }));
+      let imageData: string;
+      
+      if (useImgBB) {
+        // Upload to ImgBB and get URL
+        imageData = await uploadImageToImgBB(file);
+      } else {
+        // Direct upload to localStorage as base64
+        imageData = await fileToBase64(file);
+      }
+      
+      setBackgroundImage(imageData);
+      localStorage.setItem('drawingBgImage', imageData);
+      window.dispatchEvent(new StorageEvent('storage', { key: 'drawingBgImage', newValue: imageData }));
     } catch (error) {
       setImageError(error instanceof Error ? error.message : 'Kesalahan saat mengunggah gambar');
     } finally {
@@ -112,11 +122,23 @@ export function LotterySettings() {
             <Label htmlFor="backgroundImage" className="text-sm font-medium">
               Gambar Latar Belakang untuk Jendela Undian
             </Label>
+            <div className="flex items-center gap-2 mb-2">
+              <input
+                type="checkbox"
+                id="useBgImgBB"
+                checked={useImgBB}
+                onChange={(e) => setUseImgBB(e.target.checked)}
+                className="h-4 w-4"
+              />
+              <Label htmlFor="useBgImgBB" className="text-sm font-normal cursor-pointer">
+                Upload ke ImgBB (cloud hosting, tidak ada batas)
+              </Label>
+            </div>
             <div className="space-y-2">
               <Input
                 id="backgroundImage"
                 type="file"
-                accept="image/png,image/jpeg,image/jpg"
+                accept="image/png,image/jpeg,image/jpg,image/webp"
                 onChange={handleImageUpload}
                 disabled={isUploading}
                 className="w-full"

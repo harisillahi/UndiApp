@@ -9,7 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Checkbox } from '@/components/ui/checkbox';
-import { fileToBase64 } from '@/lib/utils';
+import { fileToBase64, uploadImageToImgBB } from '@/lib/utils';
 
 interface PrizeInputProps {
   selectedPrizes: string[];
@@ -25,6 +25,7 @@ export function PrizeInput({ selectedPrizes, onPrizeSelectionChange }: PrizeInpu
   const [isUploading, setIsUploading] = useState(false);
   const [showSuccessDialog, setShowSuccessDialog] = useState(false);
   const [showEditDialog, setShowEditDialog] = useState(false);
+  const [useImgBB, setUseImgBB] = useState(false);
 
   const handleImageUpload = async (event: React.ChangeEvent<HTMLInputElement>, isEditing = false) => {
     const file = event.target.files?.[0];
@@ -34,12 +35,20 @@ export function PrizeInput({ selectedPrizes, onPrizeSelectionChange }: PrizeInpu
     setIsUploading(true);
 
     try {
-      const base64 = await fileToBase64(file);
+      let imageData: string;
+      
+      if (useImgBB) {
+        // Upload to ImgBB and get URL
+        imageData = await uploadImageToImgBB(file);
+      } else {
+        // Direct upload to localStorage as base64
+        imageData = await fileToBase64(file);
+      }
       
       if (isEditing && editingPrize) {
-        setEditingPrize({ ...editingPrize, image: base64 });
+        setEditingPrize({ ...editingPrize, image: imageData });
       } else {
-        setNewPrize({ ...newPrize, image: base64 });
+        setNewPrize({ ...newPrize, image: imageData });
       }
     } catch (error) {
       setImageError(error instanceof Error ? error.message : 'Kesalahan saat mengunggah gambar');
@@ -139,11 +148,23 @@ export function PrizeInput({ selectedPrizes, onPrizeSelectionChange }: PrizeInpu
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="prizeImage">Gambar Hadiah (PNG atau JPG)</Label>
+                  <Label htmlFor="prizeImage">Gambar Hadiah (PNG, JPG, atau WebP)</Label>
+                  <div className="flex items-center gap-2 mb-2">
+                    <input
+                      type="checkbox"
+                      id="useImgBB"
+                      checked={useImgBB}
+                      onChange={(e) => setUseImgBB(e.target.checked)}
+                      className="h-4 w-4"
+                    />
+                    <Label htmlFor="useImgBB" className="text-sm font-normal cursor-pointer">
+                      Upload ke ImgBB (cloud hosting, tidak ada batas)
+                    </Label>
+                  </div>
                   <Input
                     id="prizeImage"
                     type="file"
-                    accept="image/png,image/jpeg,image/jpg"
+                    accept="image/png,image/jpeg,image/jpg,image/webp"
                     onChange={(e) => handleImageUpload(e, false)}
                     disabled={isUploading}
                   />
@@ -273,11 +294,23 @@ export function PrizeInput({ selectedPrizes, onPrizeSelectionChange }: PrizeInpu
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="editPrizeImage">Gambar Hadiah (PNG atau JPG)</Label>
+                <Label htmlFor="editPrizeImage">Gambar Hadiah (PNG, JPG, atau WebP)</Label>
+                <div className="flex items-center gap-2 mb-2">
+                  <input
+                    type="checkbox"
+                    id="editUseImgBB"
+                    checked={useImgBB}
+                    onChange={(e) => setUseImgBB(e.target.checked)}
+                    className="h-4 w-4"
+                  />
+                  <Label htmlFor="editUseImgBB" className="text-sm font-normal cursor-pointer">
+                    Upload ke ImgBB (cloud hosting, tidak ada batas)
+                  </Label>
+                </div>
                 <Input
                   id="editPrizeImage"
                   type="file"
-                  accept="image/png,image/jpeg,image/jpg"
+                  accept="image/png,image/jpeg,image/jpg,image/webp"
                   onChange={(e) => handleImageUpload(e, true)}
                   disabled={isUploading}
                 />

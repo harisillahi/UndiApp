@@ -52,8 +52,8 @@ export function exportToCSV(data: any[], filename: string = 'pemenang-undian.csv
 }
 
 export function validateImageFile(file: File): { isValid: boolean; error?: string } {
-  if (file.type !== 'image/png' && file.type !== 'image/jpeg' && file.type !== 'image/jpg') {
-    return { isValid: false, error: 'Harap unggah file gambar PNG atau JPG saja' };
+  if (file.type !== 'image/png' && file.type !== 'image/jpeg' && file.type !== 'image/jpg' && file.type !== 'image/webp') {
+    return { isValid: false, error: 'Harap unggah file gambar PNG, JPG, atau WebP saja' };
   }
   
   // Check file size (limit to 2MB to prevent localStorage quota issues)
@@ -65,7 +65,7 @@ export function validateImageFile(file: File): { isValid: boolean; error?: strin
   return { isValid: true };
 }
 
-export function compressImage(file: File, maxWidth: number = 800, quality: number = 0.8): Promise<string> {
+export function compressImage(file: File, maxWidth: number = 600, quality: number = 0.6): Promise<string> {
   return new Promise((resolve, reject) => {
     const canvas = document.createElement('canvas');
     const ctx = canvas.getContext('2d');
@@ -86,23 +86,40 @@ export function compressImage(file: File, maxWidth: number = 800, quality: numbe
       // Draw and compress
       ctx?.drawImage(img, 0, 0, width, height);
       
-      // Determine output format based on input file type
-      const outputFormat = file.type === 'image/jpeg' || file.type === 'image/jpg' ? 'image/jpeg' : 'image/png';
+      // Always use JPEG for better compression (convert PNG to JPEG)
+      const outputFormat = 'image/jpeg';
       
-      // Convert to base64 with compression
+      // Convert to base64 with aggressive compression
       const compressedDataUrl = canvas.toDataURL(outputFormat, quality);
       
       // Check if compressed size is still too large for localStorage
       const sizeInBytes = compressedDataUrl.length * 0.75; // Approximate size
-      const maxLocalStorageSize = 1024 * 1024; // 1MB limit for localStorage
+      const maxLocalStorageSize = 500 * 1024; // 500KB limit per image for localStorage
       
       if (sizeInBytes > maxLocalStorageSize) {
-        // Try with lower quality
-        const lowerQualityDataUrl = canvas.toDataURL(outputFormat, 0.5);
+        // Try with much lower quality
+        const lowerQualityDataUrl = canvas.toDataURL(outputFormat, 0.4);
         const lowerQualitySizeInBytes = lowerQualityDataUrl.length * 0.75;
         
         if (lowerQualitySizeInBytes > maxLocalStorageSize) {
-          reject(new Error('Gambar terlalu besar bahkan setelah kompresi. Harap gunakan gambar yang lebih kecil.'));
+          // Last attempt with smallest size
+          const smallCanvas = document.createElement('canvas');
+          const smallCtx = smallCanvas.getContext('2d');
+          const smallWidth = 400;
+          const smallHeight = (height * smallWidth) / width;
+          
+          smallCanvas.width = smallWidth;
+          smallCanvas.height = smallHeight;
+          smallCtx?.drawImage(img, 0, 0, smallWidth, smallHeight);
+          
+          const tinyDataUrl = smallCanvas.toDataURL(outputFormat, 0.3);
+          const tinySizeInBytes = tinyDataUrl.length * 0.75;
+          
+          if (tinySizeInBytes > maxLocalStorageSize) {
+            reject(new Error('Gambar terlalu besar bahkan setelah kompresi. Harap gunakan gambar yang lebih kecil.'));
+          } else {
+            resolve(tinyDataUrl);
+          }
         } else {
           resolve(lowerQualityDataUrl);
         }
@@ -219,6 +236,32 @@ export function parseCSV(csvText: string): Participant[] {
   }
   
   return participants;
+}
+
+export async function uploadImageToImgBB(file: File): Promise<string> {
+  try {
+    // First compress the image
+    const base64Image = await compressImage(file);
+    
+    // Upload to ImgBB via our API route
+    const response = await fetch('/api/upload-image', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ image: base64Image }),
+    });
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.error || 'Upload failed');
+    }
+
+    const data = await response.json();
+    return data.url; // Return the hosted image URL
+  } catch (error) {
+    throw new Error(error instanceof Error ? error.message : 'Failed to upload image');
+  }
 }
 
 export function validateCSVFile(file: File): { isValid: boolean; error?: string } {
