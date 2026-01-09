@@ -8,6 +8,15 @@ const supabase = createClient(
 
 export async function POST(request: NextRequest) {
   try {
+    // Verify API key
+    const apiKey = request.headers.get('x-api-key');
+    if (apiKey !== process.env.ADMIN_API_KEY) {
+      return NextResponse.json(
+        { error: 'Unauthorized' },
+        { status: 401 }
+      );
+    }
+
     const { serial_key, device_id } = await request.json();
 
     if (!serial_key || !device_id) {

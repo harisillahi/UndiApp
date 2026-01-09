@@ -37,7 +37,10 @@ class LicenseManager {
     try {
       const response = await fetch(`${this.apiUrl}/activate`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'x-api-key': 'admin123'
+        },
         body: JSON.stringify({ serial_key: licenseKey, device_id: deviceId })
       });
 
@@ -84,7 +87,10 @@ class LicenseManager {
       const deviceId = this.getDeviceId();
       const response = await fetch(`${this.apiUrl}/validate`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'x-api-key': 'admin123'
+        },
         body: JSON.stringify({
           serial_key: license.serial_key,
           device_id: deviceId
