@@ -9,10 +9,10 @@
     "start": "next start",
     "lint": "next lint",
     "electron:dev": "concurrently \"npm run dev\" \"wait-on http://localhost:3000 && electron .\"",
-    "electron:build": "next build && electron-builder",
-    "electron:build:win": "next build && electron-builder --win",
-    "electron:build:mac": "next build && electron-builder --mac",
-    "electron:build:linux": "next build && electron-builder --linux"
+    "electron:build": "electron-builder",
+    "electron:build:win": "electron-builder --win",
+    "electron:build:mac": "electron-builder --mac",
+    "electron:build:linux": "electron-builder --linux"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.0.1",
@@ -99,9 +99,6 @@
     },
     "files": [
       "electron/**/*",
-      ".next/**/*",
-      "public/**/*",
-      "node_modules/**/*",
       "package.json"
     ],
     "win": {

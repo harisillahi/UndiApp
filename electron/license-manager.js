@@ -4,7 +4,9 @@ const crypto = require('crypto');
 class LicenseManager {
   constructor(store) {
     this.store = store;
-    this.apiUrl = process.env.LICENSE_API_URL || 'http://localhost:3000/api/license';
+    // PRODUCTION: Change this to your Vercel URL before building
+    // Example: https://undi-app.vercel.app
+    this.apiUrl = process.env.LICENSE_API_URL || 'https://undi-app.vercel.app';
   }
 
   // Generate unique device ID

@@ -34,25 +34,29 @@ function initDatabase() {
 // Start Next.js server
 function startNextServer() {
   return new Promise((resolve, reject) => {
-    const nextCommand = isDev ? 'npm' : path.join(process.resourcesPath, 'app', 'node_modules', '.bin', 'next');
-    const nextArgs = isDev ? ['run', 'dev'] : ['start'];
+    if (isDev) {
+      // Development: use npm run dev
+      nextServer = spawn('npm', ['run', 'dev'], {
+        cwd: path.join(__dirname, '..'),
+        stdio: 'inherit',
+        shell: true,
+        env: { ...process.env, PORT: '3000' }
+      });
 
-    nextServer = spawn(nextCommand, nextArgs, {
-      cwd: isDev ? __dirname + '/..' : path.join(process.resourcesPath, 'app'),
-      stdio: 'inherit',
-      shell: true
-    });
+      nextServer.on('error', (err) => {
+        console.error('Failed to start Next.js dev server:', err);
+        reject(err);
+      });
 
-    nextServer.on('error', (err) => {
-      console.error('Failed to start Next.js server:', err);
-      reject(err);
-    });
-
-    // Wait for server to be ready
-    setTimeout(() => {
-      console.log('Next.js server started');
+      setTimeout(() => {
+        console.log('Next.js dev server started');
+        resolve();
+      }, 5000);
+    } else {
+      // Production: No local server - uses Vercel API
+      console.log('Production mode: Using Vercel API for license validation');
       resolve();
-    }, isDev ? 5000 : 3000);
+    }
   });
 }
 
