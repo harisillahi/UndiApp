@@ -39,7 +39,7 @@ class LicenseManager {
         method: 'POST',
         headers: { 
           'Content-Type': 'application/json',
-          'x-api-key': 'admin123'
+          'x-api-key': 'Dare25-Wind149'
         },
         body: JSON.stringify({ serial_key: licenseKey, device_id: deviceId })
       });
