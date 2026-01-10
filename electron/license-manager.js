@@ -5,7 +5,7 @@ class LicenseManager {
   constructor(store) {
     this.store = store;
     // PRODUCTION: Change this to your Vercel URL before building
-    // Example: https://undiapp-v12.vercel.app
+    // Example: https://undiappv12.vercel.app
     this.apiUrl = process.env.LICENSE_API_URL || 'https://undiappv12.vercel.app/api/license';
   }
 
@@ -89,7 +89,7 @@ class LicenseManager {
         method: 'POST',
         headers: { 
           'Content-Type': 'application/json',
-          'x-api-key': 'admin123'
+          'x-api-key': 'Dare25-Wind149'
         },
         body: JSON.stringify({
           serial_key: license.serial_key,
