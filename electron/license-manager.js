@@ -98,6 +98,11 @@ class LicenseManager {
         signal: AbortSignal.timeout(5000)
       });
 
+      // Check if response is ok before parsing
+      if (!response.ok) {
+        throw new Error(`Server error: ${response.status}`);
+      }
+
       const data = await response.json();
       
       if (data.valid) {
