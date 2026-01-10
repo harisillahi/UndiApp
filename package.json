@@ -109,7 +109,7 @@
         }
       ],
       "icon": "public/icon.png",
-      "sign": false
+      "signAndEditExecutable": false
     },
     "mac": {
       "target": [
