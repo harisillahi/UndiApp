@@ -6,7 +6,7 @@ class LicenseManager {
     this.store = store;
     // PRODUCTION: Change this to your Vercel URL before building
     // Example: https://undiapp-v12.vercel.app
-    this.apiUrl = process.env.LICENSE_API_URL || 'https://undiapp-v12.vercel.app/api/license';
+    this.apiUrl = process.env.LICENSE_API_URL || 'https://undiappv12.vercel.app/api/license';
   }
 
   // Generate unique device ID
