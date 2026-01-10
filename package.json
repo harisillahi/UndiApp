@@ -10,7 +10,7 @@
     "lint": "next lint",
     "electron:dev": "concurrently \"npm run dev\" \"wait-on http://localhost:3000 && electron .\"",
     "electron:build": "electron-builder",
-    "electron:build:win": "electron-builder --win",
+    "electron:build:win": "electron-builder --win --x64",
     "electron:build:mac": "electron-builder --mac",
     "electron:build:linux": "electron-builder --linux"
   },
@@ -103,8 +103,10 @@
     ],
     "win": {
       "target": [
-        "nsis",
-        "portable"
+        {
+          "target": "portable",
+          "arch": ["x64"]
+        }
       ],
       "icon": "public/icon.png"
     },

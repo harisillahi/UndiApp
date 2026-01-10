@@ -195,7 +195,7 @@ function createActivationWindow() {
           });
 
           input.addEventListener('input', (e) => {
-            let value = e.target.value.replace(/[^A-Z0-9]/g, '');
+            let value = e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '');
             let formatted = '';
             for (let i = 0; i < value.length && i < 16; i++) {
               if (i > 0 && i % 4 === 0) formatted += '-';
@@ -260,7 +260,12 @@ function createMainWindow() {
     }
   });
 
-  mainWindow.loadURL(`http://localhost:${NEXT_DEV_PORT}`);
+  // Load from localhost in dev, Vercel in production
+  const appURL = isDev 
+    ? `http://localhost:${NEXT_DEV_PORT}` 
+    : 'https://undiappv12.vercel.app';
+  
+  mainWindow.loadURL(appURL);
 
   // DevTools disabled - uncomment below to enable during development
   // if (isDev) {
