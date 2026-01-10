@@ -98,21 +98,22 @@ class LicenseManager {
         signal: AbortSignal.timeout(5000)
       });
 
-      // Check if response is ok before parsing
-      if (!response.ok) {
-        throw new Error(`Server error: ${response.status}`);
-      }
-
+      // Parse response
       const data = await response.json();
       
       if (data.valid) {
+        // License is valid - update last validated timestamp
         this.store.set('last_validated', new Date().toISOString());
         return { valid: true, expires_at: data.expires_at, days_remaining: data.days_remaining };
       } else {
-        return { valid: false, reason: 'server_rejected' };
+        // Server explicitly rejected the license (deleted, expired, wrong device, etc.)
+        // Do NOT allow offline mode - clear the stored license
+        this.store.delete('license');
+        this.store.delete('last_validated');
+        return { valid: false, reason: data.error || 'server_rejected' };
       }
     } catch (error) {
-      // Offline mode - use grace period
+      // Network error (no internet, timeout, etc.) - use grace period
       console.log('Cannot reach license server, using offline validation');
       
       const lastValidated = this.store.get('last_validated');
