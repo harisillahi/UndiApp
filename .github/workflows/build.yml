@@ -6,13 +6,9 @@ on:
   workflow_dispatch:
 
 jobs:
-  build:
-    runs-on: ${{ matrix.os }}
-    timeout-minutes: 30
-    
-    strategy:
-      matrix:
-        os: [macos-latest, windows-latest]
+  build-mac:
+    runs-on: macos-latest
+    timeout-minutes: 20
     
     steps:
       - uses: actions/checkout@v4
@@ -27,21 +23,47 @@ jobs:
         run: npm ci
       
       - name: Build for Mac
-        if: matrix.os == 'macos-latest'
         run: npm run electron:build:mac
         env:
           CSC_IDENTITY_AUTO_DISCOVERY: false
       
+      - name: Upload Mac artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: macos-build
+          path: |
+            dist/*.dmg
+            dist/*.zip
+          if-no-files-found: warn
+
+  build-windows:
+    runs-on: windows-latest
+    timeout-minutes: 30
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+      
+      - name: Install dependencies
+        run: npm ci --prefer-offline --no-audit
+        shell: cmd
+      
       - name: Build for Windows
-        if: matrix.os == 'windows-latest'
         run: npm run electron:build:win
+        shell: cmd
         env:
           CSC_LINK: ''
           CSC_KEY_PASSWORD: ''
+          CI: false
       
-      - name: Upload artifacts
+      - name: Upload Windows artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ matrix.os }}-build
-          path: dist/*.{exe,dmg,zip}
+          name: windows-build
+          path: dist/*.exe
           if-no-files-found: warn
