@@ -108,7 +108,8 @@
           "arch": ["x64"]
         }
       ],
-      "icon": "public/icon.png"
+      "icon": "public/icon.png",
+      "sign": false
     },
     "mac": {
       "target": [
