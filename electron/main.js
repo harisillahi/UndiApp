@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain } = require('electron');
+const { app, BrowserWindow, ipcMain, powerMonitor } = require('electron');
 const path = require('path');
 const { spawn } = require('child_process');
 const LicenseManager = require('./license-manager');
@@ -256,7 +256,8 @@ function createMainWindow() {
     webPreferences: {
       nodeIntegration: false,
       contextIsolation: true,
-      preload: path.join(__dirname, 'preload.js')
+      preload: path.join(__dirname, 'preload.js'),
+      backgroundThrottling: false // Prevent page from being throttled when hidden
     }
   });
 
@@ -266,6 +267,22 @@ function createMainWindow() {
     : 'https://undiappv12.vercel.app';
   
   mainWindow.loadURL(appURL);
+
+  // Reload page if it crashes or becomes unresponsive
+  mainWindow.webContents.on('render-process-gone', (event, details) => {
+    console.log('Renderer process crashed, reloading...', details.reason);
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.reload();
+    }
+  });
+
+  mainWindow.webContents.on('unresponsive', () => {
+    console.log('Page became unresponsive');
+  });
+
+  mainWindow.webContents.on('responsive', () => {
+    console.log('Page became responsive again');
+  });
 
   // DevTools disabled - uncomment below to enable during development
   // if (isDev) {
@@ -298,6 +315,29 @@ app.whenReady().then(async () => {
     console.log('No valid license, showing activation window');
     createActivationWindow();
   }
+
+  // Handle system sleep/wake events
+  powerMonitor.on('suspend', () => {
+    console.log('System is going to sleep');
+  });
+
+  powerMonitor.on('resume', () => {
+    console.log('System woke up, reloading page...');
+    // Reload the page when system wakes up to restore connection
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      setTimeout(() => {
+        mainWindow.reload();
+      }, 1000); // Wait 1 second for network to stabilize
+    }
+  });
+
+  powerMonitor.on('lock-screen', () => {
+    console.log('Screen locked');
+  });
+
+  powerMonitor.on('unlock-screen', () => {
+    console.log('Screen unlocked');
+  });
 });
 
 app.on('window-all-closed', () => {
