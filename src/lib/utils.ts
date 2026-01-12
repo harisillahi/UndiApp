@@ -205,38 +205,6 @@ export function parseCSV(csvText: string): Participant[] {
   return participants;
 }
 
-export async function uploadImageToImgBB(file: File): Promise<string> {
-  try {
-    // Convert file to base64 without compression for ImgBB upload
-    // ImgBB can handle large images and provides its own optimization
-    const base64Image = await new Promise<string>((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = () => resolve(reader.result as string);
-      reader.onerror = () => reject(new Error('Failed to read file'));
-      reader.readAsDataURL(file);
-    });
-    
-    // Upload to ImgBB via our API route
-    const response = await fetch('/api/upload-image', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ image: base64Image }),
-    });
-
-    if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.error || 'Upload failed');
-    }
-
-    const data = await response.json();
-    return data.url; // Return the hosted image URL
-  } catch (error) {
-    throw new Error(error instanceof Error ? error.message : 'Failed to upload image');
-  }
-}
-
 export function validateCSVFile(file: File): { isValid: boolean; error?: string } {
   if (file.type !== 'text/csv' && !file.name.endsWith('.csv')) {
     return { isValid: false, error: 'Harap unggah file CSV saja' };
