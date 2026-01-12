@@ -179,7 +179,7 @@ export function LotterySettings() {
               )}
             </div>
             <p className="text-xs text-gray-500">
-              Unggah gambar PNG atau JPG (maks 2MB) untuk digunakan sebagai latar belakang di jendela undian. Gambar besar akan dikompres secara otomatis.
+              Unggah gambar PNG atau JPG (maks 10MB). Gambar akan dioptimalkan untuk kualitas terbaik.
             </p>
           </div>
         </CardContent>

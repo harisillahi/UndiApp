@@ -56,16 +56,16 @@ export function validateImageFile(file: File): { isValid: boolean; error?: strin
     return { isValid: false, error: 'Harap unggah file gambar PNG, JPG, atau WebP saja' };
   }
   
-  // Check file size (limit to 2MB to prevent localStorage quota issues)
-  const maxSize = 2 * 1024 * 1024; // 2MB
+  // Electron app - allow much larger images (up to 10MB)
+  const maxSize = 10 * 1024 * 1024; // 10MB
   if (file.size > maxSize) {
-    return { isValid: false, error: 'Ukuran file gambar harus kurang dari 2MB. Harap kompres gambar Anda atau pilih file yang lebih kecil.' };
+    return { isValid: false, error: 'Ukuran file gambar harus kurang dari 10MB.' };
   }
   
   return { isValid: true };
 }
 
-export function compressImage(file: File, maxWidth: number = 600, quality: number = 0.6): Promise<string> {
+export function compressImage(file: File, maxWidth: number = 1920, quality: number = 0.95): Promise<string> {
   return new Promise((resolve, reject) => {
     const canvas = document.createElement('canvas');
     const ctx = canvas.getContext('2d');
@@ -75,6 +75,7 @@ export function compressImage(file: File, maxWidth: number = 600, quality: numbe
       // Calculate new dimensions while maintaining aspect ratio
       let { width, height } = img;
       
+      // Only resize if image is larger than maxWidth
       if (width > maxWidth) {
         height = (height * maxWidth) / width;
         width = maxWidth;
@@ -83,49 +84,15 @@ export function compressImage(file: File, maxWidth: number = 600, quality: numbe
       canvas.width = width;
       canvas.height = height;
       
-      // Draw and compress
+      // Draw image
       ctx?.drawImage(img, 0, 0, width, height);
       
-      // Always use JPEG for better compression (convert PNG to JPEG)
-      const outputFormat = 'image/jpeg';
+      // Use original format if PNG, otherwise JPEG
+      const outputFormat = file.type === 'image/png' ? 'image/png' : 'image/jpeg';
       
-      // Convert to base64 with aggressive compression
+      // High quality output
       const compressedDataUrl = canvas.toDataURL(outputFormat, quality);
-      
-      // Check if compressed size is still too large for localStorage
-      const sizeInBytes = compressedDataUrl.length * 0.75; // Approximate size
-      const maxLocalStorageSize = 500 * 1024; // 500KB limit per image for localStorage
-      
-      if (sizeInBytes > maxLocalStorageSize) {
-        // Try with much lower quality
-        const lowerQualityDataUrl = canvas.toDataURL(outputFormat, 0.4);
-        const lowerQualitySizeInBytes = lowerQualityDataUrl.length * 0.75;
-        
-        if (lowerQualitySizeInBytes > maxLocalStorageSize) {
-          // Last attempt with smallest size
-          const smallCanvas = document.createElement('canvas');
-          const smallCtx = smallCanvas.getContext('2d');
-          const smallWidth = 400;
-          const smallHeight = (height * smallWidth) / width;
-          
-          smallCanvas.width = smallWidth;
-          smallCanvas.height = smallHeight;
-          smallCtx?.drawImage(img, 0, 0, smallWidth, smallHeight);
-          
-          const tinyDataUrl = smallCanvas.toDataURL(outputFormat, 0.3);
-          const tinySizeInBytes = tinyDataUrl.length * 0.75;
-          
-          if (tinySizeInBytes > maxLocalStorageSize) {
-            reject(new Error('Gambar terlalu besar bahkan setelah kompresi. Harap gunakan gambar yang lebih kecil.'));
-          } else {
-            resolve(tinyDataUrl);
-          }
-        } else {
-          resolve(lowerQualityDataUrl);
-        }
-      } else {
-        resolve(compressedDataUrl);
-      }
+      resolve(compressedDataUrl);
     };
     
     img.onerror = () => reject(new Error('Gagal memuat gambar'));
@@ -240,8 +207,14 @@ export function parseCSV(csvText: string): Participant[] {
 
 export async function uploadImageToImgBB(file: File): Promise<string> {
   try {
-    // First compress the image
-    const base64Image = await compressImage(file);
+    // Convert file to base64 without compression for ImgBB upload
+    // ImgBB can handle large images and provides its own optimization
+    const base64Image = await new Promise<string>((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result as string);
+      reader.onerror = () => reject(new Error('Failed to read file'));
+      reader.readAsDataURL(file);
+    });
     
     // Upload to ImgBB via our API route
     const response = await fetch('/api/upload-image', {
